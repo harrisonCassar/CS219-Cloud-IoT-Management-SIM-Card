@@ -1,27 +1,16 @@
 # Cloud-Based IoT Management with SIM Card
 The code here was developed as a part of the course project for CS219: Cloud Computing with Professor Songwu Lu. Guidance for the project was graciously provided by Mentor Jinghao Zhao.
 
+## Basic Overview
+For our "local" system, we have the following main components:
+- Javacard-eSIM applet
+- Python modem client (emulates modem that uses the SIM card)
+
+For our "cloud" system, we have the following main components:
+- Python UDP server (mediates communication between the Python modem client and the main cloud server)
+- Main Python Flask server (manages/accumulates/processes all IoT data for storage and front-end display, as well as expose functionality to perform carrier switches on SIM card)
+
 ## Setup
-# create new and/or activate virtual environment
-`python3 -m venv /path/to/new/virtual/environment`
+To setup the local deployment, each subsystem involves a slightly different means/set of dependencies. To run the individual code, follow the setup/run instructions in the READMEs found within the various subdirectories. For example, for the Main Python Flask server, refer to `flask-app\README.md`.
 
-# install dependencies
-`pip install -r requirements.txt`
-
-...or manually:
-`pip install -U Flask`
-`pip install Flask-WTF`
-`pip install Flask-Bootstrap4`
-`pip install numpy`
-
-TODO UPDATE THESE DEPENDENCIES + REQUIREMENTS.TXT FILE
-
-# run app
-`cd <directory>`
-`flask run`
-
-## Challenges
-TODO
-
-## TODOs
-TODO
+**NOTE:** Eventually, we desire to move the cloud-related servers to Docker containers, but for now we do a simple "deploy" on an already-setup environment/device.

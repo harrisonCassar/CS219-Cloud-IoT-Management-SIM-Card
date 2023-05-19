@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Home - CS219</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body>
+
+    {% import "bootstrap/wtf.html" as wtf %}
+
+    <!-- Insert nice HTML page here... -->
+
+    <h1>CS219: Cloud Computing</h1>
+    <h1>Project: Cloud-Based IoT Management with SIM Card</h1>
+
+    <h3><u>Carrier Switch:</u> Change connected carrier on device</h3>
+      <div id="transfer">
+        <p>Specify the ID of the carrier below.</p>
+        <p>Current carrier: {{ current_carrier }}</p>
+        <form action="{{ url_for('carrier_switch') }}" method="post" enctype="multipart/form-data">
+          {{ form_change_carrier.csrf_token }}
+          <p>Carrier: {{ form_change_carrier.carrier }}</p>
+          <div class="button_with_status">
+            {{ form_change_carrier.submit }}
+          </div>
+        </form>
+      </div>
+
+    <br>
+    <br>
+    <br>
+
+    <footer>
+      <h3>Acknowledgements</h3>
+      <p>Developers: Harrison (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>), Ricky (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>), Disha (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>), and Albert (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>)</p>
+      <p>Developed as a part of UCLA's Spring 2023 COM SCI 219: Cloud Computing course.</p>
+      <p>Special thanks to Mentor Jinghao Zhao and Professor Songwu Lu for guidance throughout the project development process. </p>
+    </footer>
+  </body>
+</html>

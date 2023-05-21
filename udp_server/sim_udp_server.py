@@ -10,31 +10,49 @@ import argparse
 import socket
 import time
 import threading
+import queue
 
 from util import setup_logger, add_logging_arguments
+from protocol_headers import decode_modem_packet
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 60001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 60002
+MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
+modem_packets_queue = queue.Queue()
 num_packets_sent = 0
 num_packets_received = 0
 
 logger = logging.getLogger(__name__)
 
 
-def listen_from_modem():
-    # TODO: Implement
-    # Listen UDP socket, enqueue packets into Queue
-    logger.info("'Listen From Modem' thread beginning...")
+def listen_from_modem(receiving_socket):
+    '''Listen UDP socket, enqueue packets into Queue'''
 
-    count = 0
+    #global modem_packets_queue
+    global num_packets_received
 
     while True:
-        time.sleep(5)
-        logger.info(f"'Listen From Modem' thread iteration {count}...")
-        count += 1
+
+        # Receive up to specified number of bytes (if there are any).
+        try:
+            raw_data, sender_addr = receiving_socket.recvfrom(MODEM_MESSAGE_RCV_BUF_SIZE)
+        except BlockingIOError:
+            # No data to receive yet; spin!
+            continue
+
+        logger.debug(f"RCV: {len(raw_data)} bytes from sender {sender_addr}")
+        num_packets_received += 1
+
+        # Decode received data.
+        packet = decode_modem_packet(raw_data)
+
+        logger.debug(f"Decoded packet {type(packet)} from received bytes.")
+
+        # Enqueue into Queue.
+        modem_packets_queue.put(packet)
 
 
 def handle_modem_packet():
@@ -130,11 +148,11 @@ def main():
 
             threads = []
 
-            thread_listen_from_modem = threading.Thread(target=listen_from_modem, daemon=True)
+            thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(receiving_socket,), daemon=True)
             threads.append(thread_listen_from_modem)
 
-            thread_handle_incoming_packet = threading.Thread(target=handle_modem_packet, daemon=True)
-            threads.append(thread_handle_incoming_packet)
+            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, daemon=True)
+            threads.append(thread_handle_modem_packet)
 
             thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, daemon=True)
             threads.append(thread_listen_and_handle_from_main_server)

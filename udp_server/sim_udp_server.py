@@ -13,7 +13,7 @@ import threading
 import queue
 
 from util import setup_logger, add_logging_arguments
-from protocol_headers import decode_modem_packet
+from protocol_headers import decode_modem_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 60001
@@ -28,10 +28,39 @@ num_packets_received = 0
 logger = logging.getLogger(__name__)
 
 
+#######################################################
+# Helper Functions
+#######################################################
+
+def handle_iot_data_packet(packet):
+    # TODO: Implement
+    logger.debug("Handling IoT Data Packet...")
+
+
+def handle_iot_status_packet(packet):
+    # TODO: Implement
+    logger.debug("Handling IoT Status Packet...")
+
+
+def handle_carrier_switch_perform_packet(packet):
+    # TODO: Implement
+    logger.debug("Handling Carrier Switch Perform Packet...")
+
+
+def handle_carrier_switch_ack_packet(packet):
+    # TODO: Implement
+    logger.debug("Handling Carrier Switch ACK Packet...")
+
+
+#######################################################
+# Thread Target Functions
+#######################################################
+
 def listen_from_modem(receiving_socket):
     '''Listen UDP socket, enqueue packets into Queue'''
 
-    #global modem_packets_queue
+    logger.info("'Listen From Modem' thread beginning...")
+
     global num_packets_received
 
     while True:
@@ -56,16 +85,33 @@ def listen_from_modem(receiving_socket):
 
 
 def handle_modem_packet():
-    # TODO: Implement
     # Dequeue packet, decode, and call (blocking) handler
     logger.info("'Handle Modem Packet' thread beginning...")
 
-    count = 0
-
     while True:
-        time.sleep(5)
-        logger.info(f"'Handle Modem Packet' thread iteration {count}...")
-        count += 1
+
+        # Get next modem packet to handle (blocks if Queue is empty).
+        packet = modem_packets_queue.get(block=True)
+
+        if packet.flow == ModemPacket_FlowField.IOT:
+            if packet.topic == IotPacket_TopicField.DATA:
+                handle_iot_data_packet(packet)
+            elif packet.topic == IotPacket_TopicField.STATUS:
+                handle_iot_status_packet(packet)
+            else:
+                logger.error(f"Unsupported IoT Flow Packet with Topic value {packet.topic}.")
+                continue
+        elif packet.flow == ModemPacket_FlowField.CARRIER_SWITCH:
+            if packet.topic == CarrierSwitchPacket_TopicField.PERFORM:
+                handle_carrier_switch_perform_packet(packet)
+            elif packet.topic == CarrierSwitchPacket_TopicField.ACK:
+                handle_carrier_switch_ack_packet(packet)
+            else:
+                logger.error(f"Unsupported Carrier Switch Flow Packet with Topic value {packet.topic}.")
+                continue
+        else:
+            logger.error(f"Unsupported packet with Flow value {packet.flow}.")
+            continue
 
 
 def listen_and_handle_from_main_server():
@@ -80,6 +126,10 @@ def listen_and_handle_from_main_server():
         logger.info(f"'Listen and Handle from Main Server' thread iteration {count}...")
         count += 1
 
+
+#######################################################
+# Main Entry Point
+#######################################################
 
 def main():
 

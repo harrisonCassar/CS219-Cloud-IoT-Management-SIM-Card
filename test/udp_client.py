@@ -132,7 +132,7 @@ def perform_receive(server_socket):
 
 def main():
 
-    parser = argparse.ArgumentParser(description="Receive and safe a file over Serial connection from connected device.")
+    parser = argparse.ArgumentParser(description="Interactive UDP client capabale of 2-way communication.")
     add_logging_arguments(parser)
     parser.add_argument(
         '--local-address',

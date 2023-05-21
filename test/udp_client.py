@@ -97,9 +97,34 @@ def perform_send(client_socket, remote_addr_port):
     # Return number of bytes sent.
     return len(data)
 
+def perform_send_bytes(client_socket, remote_addr_port):
+
+    # Take in user input.
+    raw_hex_str = input("Enter hex bytes to send: ")
+    hex_str = raw_hex_str.strip().replace(' ', '')
+
+    data = bytes.fromhex(hex_str)
+
+    # Validate input.
+    if len(data) > MESSAGE_MAX_SIZE:
+        logger.error(f"Provided input data larger than max message size of {MESSAGE_MAX_SIZE}.")
+        return 0 # 0 bytes sent.
+
+    # Send UDP packet with data.
+    client_socket.sendto(data, remote_addr_port)
+
+    logger.debug(f"SEND: {data}")
+
+    # Notify user of status.
+    print("Data sent!")
+    print()
+
+    # Return number of bytes sent.
+    return len(data)
+
 
 def perform_receive(server_socket):
-    
+
     # Take in user input.
     num_bytes = input("Enter max number of bytes to receive: ")
 
@@ -117,7 +142,38 @@ def perform_receive(server_socket):
         print("No data to receive.")
         print()
         return 0 # 0 byes received.
-    
+
+    logger.debug(f"RCV data from {sender_addr}.")
+    logger.debug(f"RCV data: {data}")
+
+    # Output to user.
+    print(f"Received {len(data)} bytes of data:")
+    print(data)
+    print()
+
+    # Return number of bytes received.
+    return len(data)
+
+
+def perform_receive_bytes(server_socket):
+
+    # Take in user input.
+    num_bytes = input("Enter max number of bytes to receive: ")
+
+    # Validate input.
+    if not num_bytes.isnumeric():
+        logger.error(f"Provided input '{num_bytes}' is not a non-negative integer.")
+        return 0 # 0 bytes receieved.
+
+    try:
+        # Receive up to specified number of bytes (if there are any).
+        data, sender_addr = server_socket.recvfrom(int(num_bytes))
+    except BlockingIOError: # No data available to receive.
+        logger.warning("Attempted to recieve data but no data is available.")
+        print("No data to receive.")
+        print()
+        return 0 # 0 byes received.
+
     logger.debug(f"RCV data from {sender_addr}.")
     logger.debug(f"RCV data: {data}")
 
@@ -190,14 +246,20 @@ def main():
             # Start interactive session.
             while True:
 
-                command = input("Enter Command ('S' for send, 'R' for receive, 'I' for info): ")
+                command = input("Enter Command ('S' for send, 'SB' for send bytes, 'R' for receive, 'RB' for receive bytes, 'I' for info): ")
 
                 # Handle command.
                 if (command.upper() == "S"): # Send
                     num_bytes_sent += perform_send(client_socket, (remote_address, remote_port))
 
+                if (command.upper() == "SB"): # Send Bytes
+                    num_bytes_sent += perform_send_bytes(client_socket, (remote_address, remote_port))
+
                 elif (command.upper() == "R"): # Recieve
                     num_bytes_received += perform_receive(server_socket)
+                
+                elif (command.upper() == "RB"): # Recieve
+                    num_bytes_received += perform_receive_bytes(server_socket)
 
                 elif (command.upper() == "I"): # Info
                     print(f"Bytes Sent: {num_bytes_sent}")

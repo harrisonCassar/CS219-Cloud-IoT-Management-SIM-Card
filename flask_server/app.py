@@ -12,7 +12,7 @@ from wtforms.validators import DataRequired
 import os
 from datetime import datetime
 
-from backend.sim_udp_server import send_change_carrier_message
+from .backend.util import send_change_carrier_message
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 MAX_CARRIER = 5 # TODO: Specify actual list, perhaps with ENUMs

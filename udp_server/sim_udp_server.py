@@ -8,8 +8,10 @@ import sys
 import logging
 import argparse
 import socket
+import time
+import threading
 
-from .util import setup_logger, add_logging_arguments
+from util import setup_logger, add_logging_arguments
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 60001
@@ -22,19 +24,43 @@ num_packets_received = 0
 logger = logging.getLogger(__name__)
 
 
-def listen_for_incoming_packets():
+def listen_from_modem():
     # TODO: Implement
-    pass
+    # Listen UDP socket, enqueue packets into Queue
+    logger.info("'Listen From Modem' thread beginning...")
+
+    count = 0
+
+    while True:
+        time.sleep(5)
+        logger.info(f"'Listen From Modem' thread iteration {count}...")
+        count += 1
 
 
-def handle_incoming_packet():
+def handle_modem_packet():
     # TODO: Implement
-    pass
+    # Dequeue packet, decode, and call (blocking) handler
+    logger.info("'Handle Modem Packet' thread beginning...")
+
+    count = 0
+
+    while True:
+        time.sleep(5)
+        logger.info(f"'Handle Modem Packet' thread iteration {count}...")
+        count += 1
 
 
-def handle_carrier_switch_request():
+def listen_and_handle_from_main_server():
     # TODO: Implement
-    pass
+    # KafkaConsumer of messages from main Flask Server, and call respective handler
+    logger.info("'Listen and Handle from Main Server' thread beginning...")
+
+    count = 0
+
+    while True:
+        time.sleep(5)
+        logger.info(f"'Listen and Handle from Main Server' thread iteration {count}...")
+        count += 1
 
 
 def main():
@@ -89,9 +115,9 @@ def main():
 
             logger.debug(f"Init receiving server socket at server address '{server_address}' and port '{server_port}'.")
 
-            logger.debug("Init complete!")
+            logger.debug("Init complete.")
 
-            # Setup threads
+            # Setup threads.
             # 1. Listen for + push all incoming UDP packets into (thread-safe) queue
             # 2. Drain queue of 1 UDP packet (if there is one present), decode packet, run handler(s)
             #    - Handlers include:
@@ -101,10 +127,27 @@ def main():
             #    - send "in-progress" to state Flask endpoint
             #    - spin/block until either ACK is received OR timeout occurs (then perform re-try for X number of times before eventually giving up)
             #    - upon success/failure, send "success/failure" to state Flask endpoint, along with current carrier ID
-            # TODO: Implement
 
-            # Start thread executions
-            # TODO: Implement
+            threads = []
+
+            thread_listen_from_modem = threading.Thread(target=listen_from_modem, daemon=True)
+            threads.append(thread_listen_from_modem)
+
+            thread_handle_incoming_packet = threading.Thread(target=handle_modem_packet, daemon=True)
+            threads.append(thread_handle_incoming_packet)
+
+            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, daemon=True)
+            threads.append(thread_listen_and_handle_from_main_server)
+
+            # Start thread.
+            for t in threads:
+                t.start()
+
+            logger.debug("All threads launched.")
+
+            # Wait until all thread executions complete (effectively spin, as threads are daemon).
+            for t in threads:
+                t.join()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Contains various utility/helper functions for use by the UDP server.
+"""Contains various utility/helper functions.
 
 Author:
     Harrison Cassar, March 2023

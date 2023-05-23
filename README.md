@@ -14,3 +14,8 @@ For our "cloud" system, we have the following main components:
 To setup the local deployment, each subsystem involves a slightly different means/set of dependencies. To run the individual code, follow the setup/run instructions in the READMEs found within the various subdirectories. For example, for the Main Python Flask server, refer to `flask-app\README.md`.
 
 **NOTE:** Eventually, we desire to move the cloud-related servers to Docker containers, but for now we do a simple "deploy" on an already-setup environment/device.
+
+## Port Assignment
+Flask Server: 8000
+UDP Server: 6001
+Modem Client: 6002

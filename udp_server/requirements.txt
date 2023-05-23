@@ -1,0 +1,2 @@
+bitstruct==8.17.0
+temporenc==0.1.0

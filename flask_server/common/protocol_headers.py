@@ -4,7 +4,7 @@ Author:
     Harrison Cassar, May 2023
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
 from datetime import datetime
@@ -48,6 +48,7 @@ class CarrierIdField(IntEnum):
     ATNT = 0x0
     TMOBILE = 0x1
     VERIZON = 0x2
+    INVALID = 0xF
 
 
 @dataclass
@@ -55,17 +56,40 @@ class ModemPacket(ABC):
     """Struct representing shared data fields for all UDP Modem packets."""
     flow: ModemPacket_FlowField
 
+    @abstractmethod
+    def to_bytes(self):
+        current = bitstruct.pack('>u4p4', self.flow)
+        return current
+
 
 @dataclass
 class IoTPacket(ModemPacket, ABC):
     """Struct representing shared data fields for all IoT packets."""
     topic: IotPacket_TopicField
 
+    @abstractmethod
+    def to_bytes(self):
+        # Get upper packet bytes.
+        upper = super().to_bytes()
+        # Pack current packet bytes.
+        current = bitstruct.pack('>p4u4', self.topic)
+        # Combine and return.
+        return bytes([upper[0] | current[0]])
+
 
 @dataclass
 class CarrierSwitchPacket(ModemPacket, ABC):
     """Struct representing shared data fields for all CarrierSwitch packets."""
     topic: CarrierSwitchPacket_TopicField
+
+    @abstractmethod
+    def to_bytes(self):
+        # Get upper packet bytes.
+        upper = super().to_bytes()
+        # Pack current packet bytes.
+        current = bitstruct.pack('>p4u4', self.topic)
+        # Combine and return.
+        return bytes([upper[0] | current[0]])
 
 
 @dataclass
@@ -75,21 +99,54 @@ class IoTData(IoTPacket):
     data_length: int
     data: bytes
 
+    def to_bytes(self):
+        # Get upper packet bytes.
+        upper = super().to_bytes()
+        # Pack current packet bytes.
+        timestamp_raw = temporenc.packb(self.timestamp, type='DTS')
+        current = bitstruct.pack('>u32r64u8', self.device_id, timestamp_raw, self.data_length)
+        # Combine and return.
+        return upper + current + self.data
+
 
 @dataclass
 class IoTStatus(IoTPacket):
     status: IotStatus_StatusField
+
+    def to_bytes(self):
+        # Get upper packet bytes.
+        upper = super().to_bytes()
+        # Pack current packet bytes.
+        current = bitstruct.pack('>u4p4', self.status)
+        # Combine and return.
+        return upper + current
 
 
 @dataclass
 class CarrierSwitchPerform(CarrierSwitchPacket):
     carrier_id: CarrierIdField
 
+    def to_bytes(self):
+        # Get upper packet bytes.
+        upper = super().to_bytes()
+        # Pack current packet bytes.
+        current = bitstruct.pack('>u4p4', self.carrier_id)
+        # Combine and return.
+        return upper + current
+
 
 @dataclass
 class CarrierSwitchAck(CarrierSwitchPacket):
     status: CarrierSwitchAck_StatusField
     carrier_id: CarrierIdField
+
+    def to_bytes(self):
+        # Get upper packet bytes.
+        upper = super().to_bytes()
+        # Pack current packet bytes.
+        current = bitstruct.pack('>u4u4', self.status, self.carrier_id)
+        # Combine and return.
+        return upper + current
 
 
 def parse_iot_data_packet(raw_data):
@@ -210,7 +267,7 @@ def parse_carrier_switch_ack_packet(raw_data):
     )
 
 
-def decode_modem_packet(raw_data):
+def decode_packet(raw_data):
 
     # Ensure the provided data has minimal length.
     assert len(raw_data) >= 1
@@ -238,3 +295,12 @@ def decode_modem_packet(raw_data):
     else:
         logger.error(f"Packet's Flow value {flow} is unknown/invalid.")
         return None
+
+
+def gen_carrier_to_carrier_id_mapping():
+    return {
+        'AT&T'      : CarrierIdField.ATNT,
+        'T-Mobile'  : CarrierIdField.TMOBILE,
+        'Verizon'   : CarrierIdField.VERIZON,
+        'Invalid'   : CarrierIdField.INVALID
+    }

@@ -1,5 +1,5 @@
-# UDP Server
-This directory encompasses all of the necessary code for the UDP server, which performs the direct communication with the remote SIM/Modem client.
+# Mock Modem Client
+This directory encompasses all of the necessary code for a basic mock of the Modem Client, which can be used for testing the UDP server.
 
 ## Setup/Run/Manage in Docker Container
 Follow the below steps to setup, run, and manage the server in a Docker container.
@@ -15,18 +15,18 @@ Follow the below steps to setup, run, and manage the server in a Docker containe
 
 # Build image (only needs to be done after modifying installed dependencies and/or OS-level package versions).
 `cd /` # root directory, so that Docker's context is at the top-level to allow copying of the `common` directory.
-`docker image build -t udp_server -f udp_server/Dockerfile .` # -t: Name to be given to built image
+`docker image build -t modem_mock -f test/modem_mock/Dockerfile .` # -t: Name to be given to built image
 
 # Run the container (if container does not exist yet and/or image is different)
-`docker run --name udp_server -p 6001\:6001/udp udp_server` # specify option -d to run in detached mode
+`docker run --name modem_mock -p 6002\:6002/udp modem_mock` # specify option -d to run in detached mode
 
 # To start/stop/restart a docker container with our image:
-`docker restart udp_server`
-`docker stop udp_server`
-`docker start udp_server`
+`docker restart modem_mock`
+`docker stop modem_mock`
+`docker start modem_mock`
 
 # To remove a container:
-`docker rm udp_server` # use the --force option to remove running containers
+`docker rm modem_mock` # use the --force option to remove running containers
 
 # To remove all stopped containers:
 `docker container prune`
@@ -38,7 +38,7 @@ Follow the below steps to setup, run, and manage the server in a Docker containe
 `docker ps`
 
 # To view IP address for running Docker container:
-`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' udp_server`
+`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' modem_mock`
 ```
 
 ## Setup/Run/Manage locally without Docker Container
@@ -69,10 +69,8 @@ This only needs to be done once! If you've already done this before, then you ma
 
 We can install all of the Python dependencies for our Flask server automatically with one command...
 ```bash
-pip install -r udp_server/requirements.txt
+pip install -r test/modem_mock/requirements.txt
 ```
-
-Additionally, we have to install Apache Kafka and Apache Zookeeper to allow us to use Kafka. For Windows, follow the steps outlined here: https://shaaslam.medium.com/installing-apache-kafka-on-windows-495f6f2fd3c8.
 
 ### Running
 

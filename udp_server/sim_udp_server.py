@@ -12,13 +12,13 @@ import time
 import threading
 import queue
 
-from util import setup_logger, add_logging_arguments
-from protocol_headers import decode_modem_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField
+from common.util import setup_logger, add_logging_arguments
+from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
-DEFAULT_SERVER_PORT = 60001
+DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
-DEFAULT_MODEM_PORT = 60002
+DEFAULT_MODEM_PORT = 6002
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
 modem_packets_queue = queue.Queue()
@@ -39,12 +39,7 @@ def handle_iot_data_packet(packet):
 
 def handle_iot_status_packet(packet):
     # TODO: Implement
-    logger.debug("Handling IoT Status Packet...")
-
-
-def handle_carrier_switch_perform_packet(packet):
-    # TODO: Implement
-    logger.debug("Handling Carrier Switch Perform Packet...")
+    logger.info(f"IoT Status: Device ID ")
 
 
 def handle_carrier_switch_ack_packet(packet):
@@ -76,7 +71,7 @@ def listen_from_modem(receiving_socket):
         num_packets_received += 1
 
         # Decode received data.
-        packet = decode_modem_packet(raw_data)
+        packet = decode_packet(raw_data)
 
         logger.debug(f"Decoded packet {type(packet)} from received bytes.")
 
@@ -103,7 +98,7 @@ def handle_modem_packet():
                 continue
         elif packet.flow == ModemPacket_FlowField.CARRIER_SWITCH:
             if packet.topic == CarrierSwitchPacket_TopicField.PERFORM:
-                handle_carrier_switch_perform_packet(packet)
+                logger.warning(f"Did not expect to receive Carrier Switch Perform Packet from the Modem. Ignoring...")
             elif packet.topic == CarrierSwitchPacket_TopicField.ACK:
                 handle_carrier_switch_ack_packet(packet)
             else:

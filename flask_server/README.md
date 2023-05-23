@@ -14,11 +14,11 @@ Follow the below steps to setup, run, and manage the server in a Docker containe
 `docker --help`
 
 # Build image (only needs to be done after modifying installed dependencies and/or OS-level package versions).
-`cd flask_server`
-`docker image build -t flask_server .` # -t: Name to be given to built image
+`cd /` # root directory, so that Docker's context is at the top-level to allow copying of the `common` directory.
+`docker image build -t flask_server -f flask_server/Dockerfile .` # -t: Name to be given to built image
 
 # Run the container (if container does not exist yet and/or image is different)
-`docker run -p 8000\:8000 flask_server --name flask_server` # specify option -d to run in detached mode
+`docker run --name flask_server -p 8000\:8000 flask_server` # specify option -d to run in detached mode
 
 # To start/stop/restart a docker container with our image:
 `docker restart flask_server`
@@ -36,6 +36,9 @@ Follow the below steps to setup, run, and manage the server in a Docker containe
 
 # To view all running Docker containers:
 `docker ps`
+
+# To view IP address for running Docker container:
+`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' flask_server`
 ```
 
 ## Setup/Run/Manage locally without Docker Container

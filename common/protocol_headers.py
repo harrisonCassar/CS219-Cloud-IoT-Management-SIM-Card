@@ -295,3 +295,12 @@ def decode_packet(raw_data):
     else:
         logger.error(f"Packet's Flow value {flow} is unknown/invalid.")
         return None
+
+
+def gen_carrier_to_carrier_id_mapping():
+    return {
+        'AT&T'      : CarrierIdField.ATNT,
+        'T-Mobile'  : CarrierIdField.TMOBILE,
+        'Verizon'   : CarrierIdField.VERIZON,
+        'Invalid'   : CarrierIdField.INVALID
+    }

@@ -5,14 +5,16 @@
 from flask import Flask, render_template, redirect, url_for, jsonify, request, make_response
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField
+from wtforms import StringField, SubmitField, SelectField
 from wtforms.validators import DataRequired
 # from flask_wtf.csrf import CSRFProtect
 
 import os
-from datetime import datetime
+
+
 
 from backend.util import send_change_carrier_message
+from common.protocol_headers import CarrierIdField, gen_carrier_to_carrier_id_mapping
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 MAX_CARRIER = 5 # TODO: Specify actual list, perhaps with ENUMs
@@ -20,7 +22,16 @@ MAX_CARRIER = 5 # TODO: Specify actual list, perhaps with ENUMs
 ###################### on-server startup ######################
 
 # init front-end info channels/state
-current_carrier = 0 # 0 is an "invalid" carrier; this will change once we use ENUMs to specify carriers.
+current_carrier = 'Unknown'
+
+# init helpful lookups
+carrier_to_carrier_id_map = gen_carrier_to_carrier_id_mapping()
+carrier_switch_choices = [
+    ('AT&T',     'AT&T'),
+    ('T-Mobile', 'T-Mobile'),
+    ('Verizon',  'Verizon'),
+    ('Invalid',  'Disconnect'),
+]
 
 ######################## Flask support ########################
 
@@ -33,7 +44,7 @@ Bootstrap(app)
 app.config['SECRET_KEY'] = 'tfz1wBgMIh3r8aYRivXuo4imp6B7C9Aa' # Flask-WTF requires any encryption key.
 
 class ChangeCarrierForm(FlaskForm):
-    carrier = StringField('Carrier', validators=[DataRequired()])
+    carrier = SelectField('Carrier', choices=carrier_switch_choices, validate_choice=True)
     submit = SubmitField('Submit')
 
 ######################## Util functions #######################
@@ -48,7 +59,7 @@ class ChangeCarrierForm(FlaskForm):
 @app.route("/", methods=['POST', 'GET'])
 def index():
 
-    form_change_carrier = ChangeCarrierForm()
+    form_change_carrier = ChangeCarrierForm(carrier=(current_carrier if current_carrier != 'Unknown' and current_carrier != 'Disconnected' else 'Invalid'))
 
     return render_template(
         "index.html",
@@ -74,19 +85,16 @@ def carrier_switch():
 
         # Extract useful form data.
         new_carrier_raw = form_change_carrier.carrier.data
-
-        # Check carrier is valid.
-        if not new_carrier_raw.isnumeric() or int(new_carrier_raw) > MAX_CARRIER:
-            # TODO: Pass/indicate error to front-end; but for now, let's just ignore (perhaps we can perform this validation with a custom validator as a part of WTF forms?)
-            return redirect(url_for('index'))
-        
-        new_carrier = int(new_carrier_raw)
+        new_carrier = carrier_to_carrier_id_map.get(new_carrier_raw)
 
         # Switch carrier (send message + get ACK successfully + update our tracked state)
         if send_change_carrier_message(new_carrier):
-            current_carrier = new_carrier
+            if new_carrier == CarrierIdField.INVALID:
+                current_carrier = 'Disconnected'
+            else:
+                current_carrier = new_carrier_raw
         else:
-            # TODO: Implement better error handling (tell user that we've somehow failed to send the message/get an ACK from the SIM card that we've changed the carrier!)
+            # TODO: Actually implement checking for NACK/error handling (tell user that we've somehow failed to send the message/get an ACK from the SIM card that we've changed the carrier!)
             print("We had an error changing carrier!")
             return redirect(url_for('index'))
 

@@ -12,13 +12,15 @@ import time
 import threading
 import queue
 
-from common.util import setup_logger, add_logging_arguments
+from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
+DEFAULT_GRAFANA_ADDRESS = "127.0.0.1"
+DEFAULT_GRAFANA_PORT = 8002
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
 modem_packets_queue = queue.Queue()
@@ -32,12 +34,37 @@ logger = logging.getLogger(__name__)
 # Helper Functions
 #######################################################
 
-def handle_iot_data_packet(packet):
-    # TODO: Implement
+def handle_iot_data_packet(packet, sending_socket, grafana_addr_port):
+    '''Handler for IoT Data packets. Send data to Grafana for visualization.'''
+
     logger.debug("Handling IoT Data Packet...")
 
+    # TODO: Consider also pushing data to a KafkaProducer for use by the Main Flask Server to do its own visualization.
 
-def handle_iot_status_packet(packet):
+    # Get nickname for device (this will be our Grafana channel name).
+    nickname = get_device_nickname_by_id(packet.device_id)
+
+    # Format the data for Grafana input.
+    formatted_grafana_data = nickname + ' ' + nickname + '=' + str(float(int.from_bytes(packet.data, 'big', signed=True))) + ' ' + str(int(packet.timestamp.timestamp() * 1000000000))
+
+    logger.debug(formatted_grafana_data)
+    logger.debug(grafana_addr_port)
+    logger.debug(socket.gethostbyname(grafana_addr_port[0]))
+
+    formatted_grafana_data_bytes = bytes(formatted_grafana_data, 'utf-8')
+
+    logger.debug(type(formatted_grafana_data_bytes))
+
+    # TODO: Setup data source in Grafana for Grafana Live.
+    # Refer to:
+    # - https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/
+    # - https://grafana.com/tutorials/build-a-streaming-data-source-plugin/
+
+    # Send to Grafana.
+    sending_socket.sendto(formatted_grafana_data_bytes, grafana_addr_port)
+
+
+def handle_iot_status_packet(packet, sending_socket, grafana_addr_port):
     # TODO: Implement
     logger.info(f"IoT Status: Device ID ")
 
@@ -79,7 +106,7 @@ def listen_from_modem(receiving_socket):
         modem_packets_queue.put(packet)
 
 
-def handle_modem_packet():
+def handle_modem_packet(sending_socket, grafana_addr_port):
     # Dequeue packet, decode, and call (blocking) handler
     logger.info("'Handle Modem Packet' thread beginning...")
 
@@ -90,9 +117,9 @@ def handle_modem_packet():
 
         if packet.flow == ModemPacket_FlowField.IOT:
             if packet.topic == IotPacket_TopicField.DATA:
-                handle_iot_data_packet(packet)
+                handle_iot_data_packet(packet, sending_socket, grafana_addr_port)
             elif packet.topic == IotPacket_TopicField.STATUS:
-                handle_iot_status_packet(packet)
+                handle_iot_status_packet(packet, sending_socket, grafana_addr_port)
             else:
                 logger.error(f"Unsupported IoT Flow Packet with Topic value {packet.topic}.")
                 continue
@@ -152,6 +179,16 @@ def main():
         type=int,
         help="Port of modem (connected to SIM) client to communicate with. Default: %(default)s",
         default=DEFAULT_MODEM_PORT)
+    parser.add_argument(
+        '--grafana-address',
+        dest='grafana_address',
+        help="IP address of Grafana instance to send data to for visualization. Default: %(default)s",
+        default=DEFAULT_GRAFANA_ADDRESS)
+    parser.add_argument(
+        '--grafana-port',
+        dest='grafana_port',
+        help="Port of Grafana instance to send data to for visualization. Default: %(default)s",
+        default=DEFAULT_GRAFANA_PORT)
 
     args = parser.parse_args()
 
@@ -159,6 +196,8 @@ def main():
     server_port = args.server_port
     modem_address = args.modem_address
     modem_port = args.modem_port
+    grafana_address = args.grafana_address
+    grafana_port = args.grafana_port
     log = args.log
     log_level = args.log_level
 
@@ -196,7 +235,7 @@ def main():
             thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(receiving_socket,), daemon=True)
             threads.append(thread_listen_from_modem)
 
-            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, daemon=True)
+            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(sending_socket, (grafana_address, int(grafana_port))), daemon=True)
             threads.append(thread_handle_modem_packet)
 
             thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, daemon=True)

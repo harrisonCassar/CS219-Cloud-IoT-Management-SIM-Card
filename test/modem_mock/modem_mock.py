@@ -17,7 +17,7 @@ import queue
 import random
 from datetime import datetime
 
-from common.util import setup_logger, add_logging_arguments
+from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierIdField, CarrierSwitchAck, CarrierSwitchAck_StatusField, IoTData
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
@@ -30,8 +30,8 @@ DEFAULT_FAIL_RATE_CARRIER_SWITCH = 3 # For every 2 successes, we get a fail (on 
 
 # TODO: Modify sensors and their associated rategroups to reflect more "real-life" scenario.
 SENSORS_MOCKED = {
-    # Rategroup (Hz) : [(Device Nickname, Device ID, Min Data Value, Max Data Value), ...]
-    1   : [('temp', 3, 0, 1000), ('gyro', 2, 0, 360), ('imu', 1, -16, 16)],
+    # Rategroup (Hz) : [(Device ID, Min Data Value, Max Data Value), ...]
+    1   : [(3, 0, 1000), (2, 0, 360), (1, -16, 16)],
     10  : [],
     100 : []
 }
@@ -161,8 +161,9 @@ def poll_iot_sensors():
 
     def poll_and_enqueue(rategroup):
         '''Helper for polling, packaging, and enqueuing data generated for a mocked IoT device.'''
-        for nickname, device_id, min_value, max_value in SENSORS_MOCKED.get(rategroup):
+        for device_id, min_value, max_value in SENSORS_MOCKED.get(rategroup):
 
+            nickname = get_device_nickname_by_id(device_id)
             timestamp = datetime.now()
             data_int = random.randint(min_value, max_value)
             data = data_int.to_bytes(4, 'big', signed=True)

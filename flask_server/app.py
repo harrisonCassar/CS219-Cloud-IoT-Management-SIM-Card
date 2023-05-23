@@ -1,6 +1,12 @@
-#!/usr/bin/env python
+"""Flask app for the Main Flask 'Cloud-based' Server to take-in user input and expose data visualizations.
+
+Author:
+    Harrison Cassar, May 2023
+"""
 
 # For Flask form documentation, refer to: https://python-adv-web-apps.readthedocs.io/en/latest/flask_forms.html
+
+import os
 
 from flask import Flask, render_template, redirect, url_for, jsonify, request, make_response
 from flask_bootstrap import Bootstrap
@@ -8,8 +14,6 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, SelectField
 from wtforms.validators import DataRequired
 # from flask_wtf.csrf import CSRFProtect
-
-import os
 
 from backend.util import send_change_carrier_message
 from common.protocol_headers import CarrierIdField, gen_carrier_to_carrier_id_mapping

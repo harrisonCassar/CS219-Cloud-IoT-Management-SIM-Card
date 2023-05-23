@@ -28,6 +28,7 @@ services:
       - '8001:3000'
     volumes:
       - grafana-volume:/var/lib/grafana
+      #- grafana-plugins:/var/lib/grafana/plugins
 
   udp_server:
     image: udp_server

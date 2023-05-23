@@ -61,3 +61,13 @@ def add_logging_arguments(parser):
         dest='log_level',
         help="Provide logging level (i.e. DEBUG, INFO, WARNING, etc.). Default: %(default)s",
         default='INFO')
+
+def get_device_nickname_by_id(id):
+
+    id_to_nickname_map = {
+        1 : 'imu',
+        2 : 'gyro',
+        3 : 'temp'
+    }
+
+    return id_to_nickname_map.get(id, 'unknown')

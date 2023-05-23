@@ -28,16 +28,8 @@ ENTRYPOINT ["python3"]
 
 CMD [\
     "/app/modem_mock.py", \
-    "--modem-address", "127.0.0.1",\
+    "--modem-address", "modem_mock",\
     "--modem-port", "6002",\
-    "--server-address", "172.17.0.3",\
+    "--server-address", "udp_server",\
     "--server-port", "6001",\
     "--log-level", "DEBUG"]
-
-# ENTRYPOINT [\
-#     "python3", "/app/modem_mock.py",\
-#     "--remote-address", "172.17.0.3",\
-#     "--remote-port", "6001",\
-#     "--local-address", "127.0.0.1",\
-#     "--local-port", "6002",\
-#     "--log-level", "DEBUG"]

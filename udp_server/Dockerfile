@@ -28,8 +28,8 @@ ENTRYPOINT ["python3"]
 
 CMD [\
     "/app/sim_udp_server.py", \
-    "--server-address", "0.0.0.0",\
+    "--server-address", "udp_server",\
     "--server-port", "6001",\
-    "--modem-address", "172.17.0.4",\
+    "--modem-address", "modem_mock",\
     "--modem-port", "6002",\
     "--log-level", "DEBUG"]

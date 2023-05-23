@@ -2,6 +2,8 @@
 This directory encompasses all of the necessary code for a basic UDP client, which can be used for testing the UDP server (and any other UDP clients/servers).
 
 ## Setup/Run/Manage in Docker Container
+**NOTE: In order to test with this within the full system, first refer to the steps using `docker compose` outlined in the main `README.md` in the root directory. Then, stop the specific subsystem you're looking to mock out, and then config/build/run this Docker container to effectively replace this subsystem.**
+
 Follow the below steps to setup, run, and manage the server in a Docker container.
 
 ```bash

@@ -26,12 +26,3 @@ CMD [\
     "--local-address", "127.0.0.1",\
     "--local-port", "6002",\
     "--log-level", "DEBUG"]
-
-# TODO: Avoid hardcoding IP addresses. Perhaps use Docker's built-in networking functionality and/or `docker-compose`?
-# ENTRYPOINT [\
-#     "python3", "./app/udp_client.py",\
-#     "--remote-address", "172.17.0.3",\
-#     "--remote-port", "6001",\
-#     "--local-address", "127.0.0.1",\
-#     "--local-port", "6002",\
-#     "--log-level", "DEBUG"]

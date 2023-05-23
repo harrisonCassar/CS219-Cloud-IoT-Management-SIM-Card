@@ -2,6 +2,7 @@
 This directory encompasses all of the necessary code for a basic mock of the Modem Client, which can be used for testing the UDP server.
 
 ## Setup/Run/Manage in Docker Container
+**NOTE: Only follow the steps in this section if you're looking to run/manage this application indepedently from the other containers. If you desire to run this application as a part of the full system, please refer to the steps using `docker compose` outlined in the main `README.md` in the root directory.**
 Follow the below steps to setup, run, and manage the server in a Docker container.
 
 ```bash

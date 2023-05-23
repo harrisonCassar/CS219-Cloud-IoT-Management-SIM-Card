@@ -1,0 +1,56 @@
+version: "3.9"
+
+# Adapted from:
+# - https://docs.docker.com/compose/gettingstarted/
+# - https://github.com/docker/awesome-compose
+
+################################################
+# SERVICES
+################################################
+
+services:
+  flask_server:
+    image: flask_server
+    container_name: flask_server
+    build:
+      context: .
+      dockerfile: ./flask_server/Dockerfile
+    # flask requires SIGINT to stop gracefully
+    # (default stop signal from Compose is SIGTERM)
+    stop_signal: SIGINT
+    ports:
+      - '8000:8000'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - '8001:3000'
+    volumes:
+      - grafana-volume:/var/lib/grafana
+
+  udp_server:
+    image: udp_server
+    container_name: udp_server
+    build:
+      context: .
+      dockerfile: ./udp_server/Dockerfile
+    ports:
+      - '6001:6001/udp'
+
+  modem_mock:
+    image: modem_mock
+    container_name: modem_mock
+    build:
+      context: .
+      dockerfile: ./test/modem_mock/Dockerfile
+    ports:
+      - '6002:6002/udp'
+
+################################################
+# VOLUMES
+################################################
+
+volumes:
+    grafana-volume:
+        external: false

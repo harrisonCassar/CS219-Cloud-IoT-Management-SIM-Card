@@ -2,6 +2,7 @@
 This directory contains all of the code for the main cloud-based Flask server.
 
 ## Setup/Run/Manage in Docker Container
+**NOTE: Only follow the steps in this section if you're looking to run/manage this application indepedently from the other containers. If you desire to run this application as a part of the full system, please refer to the steps using `docker compose` outlined in the main `README.md` in the root directory.**
 Follow the below steps to setup, run, and manage the server in a Docker container.
 
 ```bash
@@ -39,6 +40,17 @@ Follow the below steps to setup, run, and manage the server in a Docker containe
 
 # To view IP address for running Docker container:
 `docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' flask_server`
+```
+
+Additionally, be sure to start the Grafana container as follows:
+```bash
+# Run Grafana container (will download if local copy not present).
+`docker run --name grafana -d -p 8001\:3000 --name grafana grafana/grafana-oss`
+
+# To start/stop/restart a docker container with our image:
+`docker restart grafana`
+`docker stop grafana`
+`docker start grafana`
 ```
 
 ## Setup/Run/Manage locally without Docker Container

@@ -11,8 +11,6 @@ from wtforms.validators import DataRequired
 
 import os
 
-
-
 from backend.util import send_change_carrier_message
 from common.protocol_headers import CarrierIdField, gen_carrier_to_carrier_id_mapping
 
@@ -70,6 +68,12 @@ def index():
 @app.route('/about')
 def about():
     return render_template('about.html')
+
+
+@app.route('/grafana')
+def grafana_home():
+    # TODO: Make this URL non-hardcoded, perhaps using Docker-compose...?
+    return redirect('http://localhost:8001/')
 
 
 ## routines

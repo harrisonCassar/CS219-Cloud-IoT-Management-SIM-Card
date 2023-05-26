@@ -40,6 +40,4 @@ CMD [\
     "--server-port", "6001",\
     "--modem-address", "modem_mock",\
     "--modem-port", "6002",\
-    "--streaming-address", "udp_server",\
-    "--streaming-port", "8002",\
     "--log-level", "INFO"]

@@ -51,16 +51,16 @@ services:
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
 
-  grafana:
-    image: grafana/grafana-oss # older stable version: grafana/grafana-enterprise:8.2.0
-    container_name: grafana
-    restart: always
-    ports:
-      - '3000:3000'
-    volumes:
-      - grafana-volume:/var/lib/grafana
-      - ./flask_server/config/grafana.ini:/etc/grafana/grafana.ini
-      #- ./grafana/dashboards/:/var/lib/grafana/dashboards/
+  # grafana:
+  #   image: grafana/grafana-oss # older stable version: grafana/grafana-enterprise:8.2.0
+  #   container_name: grafana
+  #   restart: always
+  #   ports:
+  #     - '3000:3000'
+  #   volumes:
+  #     - grafana-volume:/var/lib/grafana
+  #     - ./flask_server/config/grafana.ini:/etc/grafana/grafana.ini
+  #     #- ./grafana/dashboards/:/var/lib/grafana/dashboards/
 
   udp_server:
     image: udp_server
@@ -84,6 +84,6 @@ services:
 # VOLUMES
 ################################################
 
-volumes:
-    grafana-volume:
-        external: false
+# volumes:
+#     grafana-volume:
+#         external: false

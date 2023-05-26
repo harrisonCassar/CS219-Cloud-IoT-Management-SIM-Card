@@ -22,8 +22,6 @@ DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
-DEFAULT_STREAMING_ADDRESS = "127.0.0.1"
-DEFAULT_STREAMING_PORT = 8002
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
 modem_packets_queue = queue.Queue()
@@ -187,16 +185,6 @@ def main():
         type=int,
         help="Port of modem (connected to SIM) client to communicate with. Default: %(default)s",
         default=DEFAULT_MODEM_PORT)
-    parser.add_argument(
-        '--streaming-address',
-        dest='streaming_address',
-        help="IP address of streaming instance to send data to for visualization. Default: %(default)s",
-        default=DEFAULT_STREAMING_ADDRESS)
-    parser.add_argument(
-        '--streaming-port',
-        dest='streaming_port',
-        help="Port of streaming instance to send data to for visualization. Default: %(default)s",
-        default=DEFAULT_STREAMING_PORT)
 
     args = parser.parse_args()
 
@@ -204,8 +192,6 @@ def main():
     server_port = args.server_port
     modem_address = args.modem_address
     modem_port = args.modem_port
-    streaming_address = args.streaming_address
-    streaming_port = args.streaming_port
     log = args.log
     log_level = args.log_level
 

@@ -22,13 +22,15 @@ services:
       - '8000:8000'
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana-oss
     container_name: grafana
+    restart: always
     ports:
-      - '8001:3000'
+      - '3000:3000'
     volumes:
       - grafana-volume:/var/lib/grafana
-      #- grafana-plugins:/var/lib/grafana/plugins
+      - ./flask_server/config/grafana.ini:/etc/grafana/grafana.ini
+      #- ./grafana/dashboards/:/var/lib/grafana/dashboards/
 
   udp_server:
     image: udp_server

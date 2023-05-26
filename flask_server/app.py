@@ -77,7 +77,7 @@ def about():
 @app.route('/grafana')
 def grafana_home():
     # TODO: Make this URL non-hardcoded, perhaps using Docker-compose...?
-    return redirect('http://localhost:8001/')
+    return redirect('http://localhost:3000/')
 
 
 ## routines

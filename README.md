@@ -27,6 +27,6 @@ To setup the local deployment, each subsystem involves a slightly different mean
 
 ## Port Assignment
 Flask Server: 8000
-Grafana: 8001 (mapped from 3000 default)
+Grafana: 3000
 UDP Server: 6001
 Modem Client: 6002

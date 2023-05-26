@@ -45,7 +45,7 @@ Follow the below steps to setup, run, and manage the server in a Docker containe
 Additionally, be sure to start the Grafana container as follows:
 ```bash
 # Run Grafana container (will download if local copy not present).
-`docker run --name grafana -d -p 8001\:3000 --name grafana grafana/grafana-oss`
+`docker run --name grafana -d -p 3000\:3000 --name grafana grafana/grafana-oss`
 
 # To start/stop/restart a docker container with our image:
 `docker restart grafana`

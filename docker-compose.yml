@@ -80,6 +80,13 @@ services:
     ports:
       - '6002:6002/udp'
 
+  # kafka_consumer:
+  #   image: kafka_consumer
+  #   container_name: kafka_consumer
+  #   build:
+  #     context: .
+  #     dockerfile: ./test/kafka_consumer/Dockerfile
+
 ################################################
 # VOLUMES
 ################################################

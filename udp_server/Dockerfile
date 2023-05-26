@@ -44,4 +44,6 @@ CMD [\
     "--kafka-port", "29092",\
     "--flask-server-address", "flask_server",\
     "--flask-server-port", "8000",\
+    "--streaming-address", "telegraf",\
+    "--streaming-port", "8002",\
     "--log-level", "INFO"]

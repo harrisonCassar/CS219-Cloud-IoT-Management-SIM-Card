@@ -61,16 +61,25 @@ services:
       timeout: 10s
       retries: 10
 
-  # grafana:
-  #   image: grafana/grafana-oss # older stable version: grafana/grafana-enterprise:8.2.0
-  #   container_name: grafana
-  #   restart: always
-  #   ports:
-  #     - '3000:3000'
-  #   volumes:
-  #     - grafana-volume:/var/lib/grafana
-  #     - ./flask_server/config/grafana.ini:/etc/grafana/grafana.ini
-  #     #- ./grafana/dashboards/:/var/lib/grafana/dashboards/
+  telegraf:
+    image: telegraf
+    container_name: telegraf
+    restart: always
+    volumes:
+      - ./flask_server/config/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    ports:
+      - '8002:8002/udp'
+
+  grafana:
+    image: grafana/grafana-oss # older stable version: grafana/grafana-enterprise:8.2.0
+    container_name: grafana
+    restart: always
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-volume:/var/lib/grafana
+      - ./flask_server/config/grafana.ini:/etc/grafana/grafana.ini
+      #- ./grafana/dashboards/:/var/lib/grafana/dashboards/
 
   udp_server:
     image: udp_server
@@ -102,6 +111,6 @@ services:
 # VOLUMES
 ################################################
 
-# volumes:
-#     grafana-volume:
-#         external: false
+volumes:
+    grafana-volume:
+        external: false

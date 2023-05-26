@@ -15,6 +15,7 @@ import json
 
 import requests
 from confluent_kafka import Producer, Consumer
+from websockets.sync.client import connect
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform, CarrierSwitchAck_StatusField, CarrierIdField
@@ -27,6 +28,8 @@ DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
 DEFAULT_KAFKA_ADDRESS = "127.0.0.1"
 DEFAULT_KAFKA_PORT = 9092
+DEFAULT_STREAMING_ADDRESS = "127.0.0.1"
+DEFAULT_STREAMING_PORT = 8002
 
 KAFKA_TOPIC_SERVER_MESSAGES = ['downstream-request']
 FLASK_SERVER_ENDPOINT_CARRIER_SWITCH_STATUS = "carrier_switch_status"
@@ -63,8 +66,8 @@ def handle_producer_event_cb(err, msg):
 
 ## Modem Packet Handlers
 
-def handle_iot_data_packet(packet, producer):
-    '''Handler for IoT Data packets. Pushes data to Kafka.'''
+def handle_iot_data_packet(packet, producer, sending_socket, streaming_addr_port):
+    '''Handler for IoT Data packets. Pushes data to Kafka, and send data to Grafana through Telegraf.'''
 
     logger.debug("Handling IoT Data Packet...")
 
@@ -86,6 +89,31 @@ def handle_iot_data_packet(packet, producer):
     producer.flush()
 
     time.sleep(0.01)
+
+
+    # Format the data for Grafana input.
+    formatted_streaming_data = nickname + ' ' + nickname + '=' + str(float(int.from_bytes(packet.data, 'big', signed=True))) + ' ' + str(int(packet.timestamp.timestamp() * 1000000000))
+
+    logger.debug(formatted_streaming_data)
+    logger.debug(streaming_addr_port)
+    logger.debug(socket.gethostbyname(streaming_addr_port[0]))
+
+    formatted_streaming_data_bytes = bytes(formatted_streaming_data, 'utf-8')
+
+    logger.debug(type(formatted_streaming_data_bytes))
+
+    # TODO: Setup data source in Grafana for Grafana Live.
+    # Refer to:
+    # - https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/
+    # - https://grafana.com/tutorials/build-a-streaming-data-source-plugin/
+
+    # with connect("ws://grafana:3000/api/live/push/cs") as websocket:
+    #     websocket.send(formatted_streaming_data_bytes)
+    #     msg = websocket.recv()
+    #     logger.debug(msg)
+
+    # Send to Grafana.
+    sending_socket.sendto(formatted_streaming_data_bytes, streaming_addr_port)
 
 
 def handle_iot_status_packet(packet):
@@ -176,7 +204,7 @@ def listen_from_modem(receiving_socket):
         modem_packets_queue.put(packet)
 
 
-def handle_modem_packet(producer, flask_server_addr_port):
+def handle_modem_packet(producer, flask_server_addr_port, sending_socket, streaming_addr_port):
     # Dequeue packet, decode, and call (blocking) handler
     logger.info("'Handle Modem Packet' thread beginning...")
 
@@ -187,7 +215,7 @@ def handle_modem_packet(producer, flask_server_addr_port):
 
         if packet.flow == ModemPacket_FlowField.IOT:
             if packet.topic == IotPacket_TopicField.DATA:
-                handle_iot_data_packet(packet, producer)
+                handle_iot_data_packet(packet, producer, sending_socket, streaming_addr_port)
             elif packet.topic == IotPacket_TopicField.STATUS:
                 handle_iot_status_packet(packet)
             else:
@@ -289,6 +317,16 @@ def main():
         type=int,
         help="Port of main Flask server to communicate with. Default: %(default)s",
         default=DEFAULT_FLASK_SERVER_PORT)
+    parser.add_argument(
+         '--streaming-address',
+        dest='streaming_address',
+        help="IP address of streaming instance to send data to for visualization. Default: %(default)s",
+        default=DEFAULT_STREAMING_ADDRESS)
+    parser.add_argument(
+        '--streaming-port',
+        dest='streaming_port',
+        help="Port of streaming instance to send data to for visualization. Default: %(default)s",
+        default=DEFAULT_STREAMING_PORT)
 
     args = parser.parse_args()
 
@@ -300,6 +338,8 @@ def main():
     kafka_port = args.kafka_port
     flask_server_address = args.flask_server_address
     flask_server_port = args.flask_server_port
+    streaming_address = args.streaming_address
+    streaming_port = args.streaming_port
     log = args.log
     log_level = args.log_level
 
@@ -350,7 +390,7 @@ def main():
             thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(receiving_socket,), daemon=True)
             threads.append(thread_listen_from_modem)
 
-            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer, (flask_server_address, flask_server_port)), daemon=True)
+            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer, (flask_server_address, flask_server_port), sending_socket, (streaming_address, int(streaming_port))), daemon=True)
             threads.append(thread_handle_modem_packet)
 
             thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(sending_socket, (modem_address, modem_port), consumer), daemon=True)

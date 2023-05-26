@@ -11,8 +11,11 @@ import socket
 import time
 import threading
 import queue
+import json
 
-from common.util import setup_logger, add_logging_arguments
+from confluent_kafka import Producer
+
+from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
@@ -27,6 +30,12 @@ modem_packets_queue = queue.Queue()
 num_packets_sent = 0
 num_packets_received = 0
 
+# Setup Kafka Producer/Consumers
+# TODO: Move this to within the actual `main` code, and keep re-trying until success. This will avoid the need to start this Docker container later than the `kafka` container due to it's need to init.
+producer = Producer({
+    'bootstrap.servers':'kafka:29092'
+})
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,40 +43,33 @@ logger = logging.getLogger(__name__)
 # Helper Functions
 #######################################################
 
+def handle_producer_event_cb(err, msg):
+    if err is not None:
+        logger.error(f'{err}')
+    else:
+        logger.info(f'Produced message on topic {msg.topic()} with value of {msg.value().decode("utf-8")}')
+
+
 def handle_iot_data_packet(packet):
     '''Handler for IoT Data packets. Push data to Kafka.'''
 
     logger.debug("Handling IoT Data Packet...")
 
-    # TODO: Consider also pushing data to a KafkaProducer for use by the Main Flask Server to do its own visualization.
-    # push to Kafka, Grafana can use!
+    # TODO: See if we can integrate Grafana visualization as well. Tried, but having issues with Grafana's Kafka data source plugin + Grafana Live with Telegraf.
 
-    # # Get nickname for device (this will be our Grafana channel name).
-    # nickname = get_device_nickname_by_id(packet.device_id)
+    # Get nickname for device (this will be the easy way we determine what type of data this is).
+    nickname = get_device_nickname_by_id(packet.device_id)
 
-    # # Format the data for Grafana input.
-    # formatted_streaming_data = nickname + ' ' + nickname + '=' + str(float(int.from_bytes(packet.data, 'big', signed=True))) + ' ' + str(int(packet.timestamp.timestamp() * 1000000000))
+    # Format our data in the way Kafka expects.
+    data_int = int.from_bytes(packet.data, 'big', signed=True)
+    msg = json.dumps({nickname : data_int}).encode('utf-8')
 
-    # logger.debug(formatted_streaming_data)
-    # logger.debug(streaming_addr_port)
-    # logger.debug(socket.gethostbyname(streaming_addr_port[0]))
+    # Push to Kafka, so downstream tasks can use!
+    producer.poll(0)
+    producer.produce(nickname, msg, callback=handle_producer_event_cb)
+    producer.flush()
 
-    # formatted_streaming_data_bytes = bytes(formatted_streaming_data, 'utf-8')
-
-    # logger.debug(type(formatted_streaming_data_bytes))
-
-    # # TODO: Setup data source in Grafana for Grafana Live.
-    # # Refer to:
-    # - https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/
-    # - https://grafana.com/tutorials/build-a-streaming-data-source-plugin/
-
-    # with connect("ws://grafana:3000/api/live/push/cs") as websocket:
-    #     websocket.send(formatted_streaming_data_bytes)
-    #     msg = websocket.recv()
-    #     logger.debug(msg)
-
-    # # Send to Grafana.
-    # sending_socket.sendto(formatted_streaming_data_bytes, streaming_addr_port)
+    time.sleep(0.01)
 
 
 def handle_iot_status_packet(packet):

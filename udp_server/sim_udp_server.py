@@ -13,18 +13,23 @@ import threading
 import queue
 import json
 
+import requests
 from confluent_kafka import Producer, Consumer
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
-from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform
+from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform, CarrierSwitchAck_StatusField, CarrierIdField
 
+DEFAULT_FLASK_SERVER_ADDRESS = "127.0.0.1"
+DEFAULT_FLASK_SERVER_PORT= 8000
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
 DEFAULT_KAFKA_ADDRESS = "127.0.0.1"
 DEFAULT_KAFKA_PORT = 9092
+
 KAFKA_TOPIC_SERVER_MESSAGES = ['downstream-request']
+FLASK_SERVER_ENDPOINT_CARRIER_SWITCH_STATUS = "carrier_switch_status"
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
 modem_packets_queue = queue.Queue()
@@ -59,7 +64,7 @@ def handle_producer_event_cb(err, msg):
 ## Modem Packet Handlers
 
 def handle_iot_data_packet(packet, producer):
-    '''Handler for IoT Data packets. Push data to Kafka.'''
+    '''Handler for IoT Data packets. Pushes data to Kafka.'''
 
     logger.debug("Handling IoT Data Packet...")
 
@@ -88,11 +93,25 @@ def handle_iot_status_packet(packet):
     logger.info(f"IoT Status: Device ID ")
 
 
-def handle_carrier_switch_ack_packet(packet):
-    # TODO: Implement: Want to push status (ACK/NACK) to Flask endpoint.
+def handle_carrier_switch_ack_packet(packet, flask_server_addr_port):
+    '''Handler for Carrier Switch ACK packets. Pushes status to Main Flask server endpoint.'''
+
     logger.debug("Handling Carrier Switch ACK Packet...")
 
     logger.info(f"Carrier Switch ACK Packet fields: {packet.status}, {carrier_id_to_carrier_mapping.get(packet.carrier_id)}")
+
+    # Setup args.
+    url = f'http://{flask_server_addr_port[0]}:{flask_server_addr_port[1]}/{FLASK_SERVER_ENDPOINT_CARRIER_SWITCH_STATUS}'
+
+    status = 'ACK' if packet.status == CarrierSwitchAck_StatusField.ACK else 'NACK'
+    carrier = carrier_id_to_carrier_mapping.get(packet.carrier_id, 'Unknown')
+    args = {
+        'status' : status,
+        'carrier' : carrier
+    }
+
+    # Send POST request to Flask server to update Carrier Switch status.
+    requests.post(url, json=args)
 
 
 ## Downstream Request Handlers
@@ -157,7 +176,7 @@ def listen_from_modem(receiving_socket):
         modem_packets_queue.put(packet)
 
 
-def handle_modem_packet(producer):
+def handle_modem_packet(producer, flask_server_addr_port):
     # Dequeue packet, decode, and call (blocking) handler
     logger.info("'Handle Modem Packet' thread beginning...")
 
@@ -178,7 +197,7 @@ def handle_modem_packet(producer):
             if packet.topic == CarrierSwitchPacket_TopicField.PERFORM:
                 logger.warning(f"Did not expect to receive Carrier Switch Perform Packet from the Modem. Ignoring...")
             elif packet.topic == CarrierSwitchPacket_TopicField.ACK:
-                handle_carrier_switch_ack_packet(packet)
+                handle_carrier_switch_ack_packet(packet, flask_server_addr_port)
             else:
                 logger.error(f"Unsupported Carrier Switch Flow Packet with Topic value {packet.topic}.")
                 continue
@@ -259,6 +278,17 @@ def main():
         type=int,
         help="Port of Kafka server to communicate with. Default: %(default)s",
         default=DEFAULT_KAFKA_PORT)
+    parser.add_argument(
+        '--flask-server-address',
+        dest='flask_server_address',
+        help="IP address of main Flask server to communicate with. Default: %(default)s",
+        default=DEFAULT_FLASK_SERVER_ADDRESS)
+    parser.add_argument(
+        '--flask-server-port',
+        dest='flask_server_port',
+        type=int,
+        help="Port of main Flask server to communicate with. Default: %(default)s",
+        default=DEFAULT_FLASK_SERVER_PORT)
 
     args = parser.parse_args()
 
@@ -268,6 +298,8 @@ def main():
     modem_port = args.modem_port
     kafka_address = args.kafka_address
     kafka_port = args.kafka_port
+    flask_server_address = args.flask_server_address
+    flask_server_port = args.flask_server_port
     log = args.log
     log_level = args.log_level
 
@@ -318,7 +350,7 @@ def main():
             thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(receiving_socket,), daemon=True)
             threads.append(thread_listen_from_modem)
 
-            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer,), daemon=True)
+            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer, (flask_server_address, flask_server_port)), daemon=True)
             threads.append(thread_handle_modem_packet)
 
             thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(sending_socket, (modem_address, modem_port), consumer), daemon=True)

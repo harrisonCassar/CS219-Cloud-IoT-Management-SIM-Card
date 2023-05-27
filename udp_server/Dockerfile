@@ -42,4 +42,6 @@ CMD [\
     "--modem-port", "6002",\
     "--kafka-address", "kafka",\
     "--kafka-port", "29092",\
+    "--flask-server-address", "flask_server",\
+    "--flask-server-port", "8000",\
     "--log-level", "INFO"]

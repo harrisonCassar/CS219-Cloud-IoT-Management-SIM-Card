@@ -39,15 +39,13 @@ def handle_producer_event_cb(err, msg):
 ###################### on-server startup ######################
 
 # init front-end info channels/state
+# TODO: Perhaps use ENUMs...? Better style + more robust to change down the road.
+# TODO: See if we can get this to be live-updated on the browser page? Currently just static, and only updates once the user refreshes the page.
 current_carrier = 'Unknown'
+carrier_switch_status = 'Not yet started' # Current options: "Not yet started", "Success", "Failure", "In progress", "Unknown"
 
 # init helpful lookups
-carrier_switch_choices = [
-    ('AT&T',     'AT&T'),
-    ('T-Mobile', 'T-Mobile'),
-    ('Verizon',  'Verizon'),
-    ('Disconnect',  'Disconnect'),
-]
+carrier_switch_choices = ['AT&T', 'T-Mobile', 'Verizon', 'Disconnect']
 
 # Setup Kafka Producer.
 producer = Producer({
@@ -81,6 +79,7 @@ def index():
     return render_template(
         "index.html",
         current_carrier=current_carrier,
+        carrier_switch_status=carrier_switch_status,
         form_change_carrier=form_change_carrier)
 
 
@@ -97,13 +96,66 @@ def grafana_home():
 
 ## routines
 
+@app.route('/carrier_switch_status', methods=['POST'])
+def carrier_switch_status_update():
+
+    global current_carrier
+    global carrier_switch_status
+
+    # Extract (and validate) relevant arguments representing our status.
+    args_dict = request.get_json(force=True) # force=True necessary posting forgot to set MIME type to 'application/json'
+
+    status_raw = args_dict.get('status')
+    modem_current_carrier = args_dict.get('carrier')
+
+    if not status_raw or not modem_current_carrier:
+        print("ERROR: Post of Carrier Switch status is missing arguments.")
+        return redirect(url_for('index'))
+
+    print(f"Post of Carrier Switch status: {status_raw}, {modem_current_carrier}")
+
+    # Assume that the Modem's current carrier is a valid carrier choice.
+    # Perhaps this is reasonable anyway, as maybe we only want to support a certain
+    # set of carriers with this cloud interface, but the Modem/SIM may have more that
+    # it can possibly be set to.
+    #
+    # if modem_current_carrier not in carrier_switch_choices:
+    #     print(f"ERROR: Post of Carrier Switch status indicates a carrier that is not supported {modem_current_carrier}.")
+    #     return redirect(url_for('index'))
+
+    # Decode status, and update our internal state.
+    if status_raw == 'ACK':
+        carrier_switch_status = "Success"
+        current_carrier = modem_current_carrier
+    elif status_raw == 'NACK':
+        carrier_switch_status = "Failure"
+        current_carrier = modem_current_carrier
+    else:
+        print(f"ERROR: Received unknown Carrier Switch status {status_raw}.")
+        carrier_switch_status = "Unknown"
+        current_carrier = "Unknown"
+
+    return redirect(url_for('index'))
+
+
 @app.route("/carrier_switch", methods=['POST'])
 def carrier_switch():
+
     global current_carrier
+    global carrier_switch_status
 
     form_change_carrier = ChangeCarrierForm()
 
-    # Change carrier to specification
+    # TODO: Perhaps add some kind of check for if we've already begun a request?
+    # This will avoid unncessary communication + protect spamming of carrier switch.
+    # We should, however, add some form of timeout in case the UDP server and/or Modem client
+    # experience some problem that prevents an ACK being sent back through the above
+    # "carrier_switch_status" endpoint. Perhaps we can use Flask's Celery plugin for this..?
+    #
+    # if carrier_switch_status != 'Not yet started' and carrier_switch_status != 'Success':
+    #     print("Cannot start a Carrier Switch Request until the previous one has been resolved.")
+
+    # Change carrier to specification.
     if form_change_carrier.validate_on_submit():
 
         # Extract useful form data.
@@ -130,11 +182,7 @@ def carrier_switch():
         producer.flush()
 
         # Update current carrier switch state.
-        # TODO: Represent Carrier Switch state as "In Progress" and DON'T change current carrier state just yet. Let some other endpoint set this status ("carrier_switch_status" endpoint).
-        if new_carrier == 'Disconnect':
-            current_carrier = 'Disconnected'
-        else:
-            current_carrier = new_carrier
+        carrier_switch_status = 'In progress'
 
     return redirect(url_for('index'))
 

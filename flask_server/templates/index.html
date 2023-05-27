@@ -18,6 +18,7 @@
       <div id="transfer">
         <p>Specify the ID of the carrier below.</p>
         <p>Current carrier: {{ current_carrier }}</p>
+        <p>Current carrier switch status: {{ carrier_switch_status }}</p>
         <form action="{{ url_for('carrier_switch') }}" method="post" enctype="multipart/form-data">
           {{ form_change_carrier.csrf_token }}
           <p>Carrier: {{ form_change_carrier.carrier }}</p>

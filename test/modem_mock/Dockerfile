@@ -32,4 +32,4 @@ CMD [\
     "--modem-port", "6002",\
     "--server-address", "udp_server",\
     "--server-port", "6001",\
-    "--log-level", "DEBUG"]
+    "--log-level", "INFO"]

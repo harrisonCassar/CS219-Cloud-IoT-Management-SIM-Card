@@ -299,8 +299,18 @@ def decode_packet(raw_data):
 
 def gen_carrier_to_carrier_id_mapping():
     return {
-        'AT&T'      : CarrierIdField.ATNT,
-        'T-Mobile'  : CarrierIdField.TMOBILE,
-        'Verizon'   : CarrierIdField.VERIZON,
-        'Invalid'   : CarrierIdField.INVALID
+        'AT&T'          : CarrierIdField.ATNT,
+        'T-Mobile'      : CarrierIdField.TMOBILE,
+        'Verizon'       : CarrierIdField.VERIZON,
+        'Disconnect'    : CarrierIdField.INVALID,
+        'Invalid'       : CarrierIdField.INVALID
+    }
+
+
+def gen_carrier_id_to_carrier_mapping():
+    return {
+        CarrierIdField.ATNT     : 'AT&T',
+        CarrierIdField.TMOBILE  : 'T-Mobile',
+        CarrierIdField.VERIZON  : 'Verizon',
+        CarrierIdField.INVALID  : 'Disconnect',
     }

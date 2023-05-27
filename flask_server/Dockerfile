@@ -29,6 +29,6 @@ COPY ./flask_server /app
 # ...None for now...
 
 # Config container to run in executed manner.
-ENTRYPOINT ["python3"]
+#ENTRYPOINT ["python3"]
 
-CMD ["/app/app.py"]
+CMD ["python3", "-u", "/app/app.py"]

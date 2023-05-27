@@ -60,6 +60,8 @@ def handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate):
 
     logger.debug("Handling Carrier Switch Perform Packet...")
 
+    logger.info(f"Received request to Carrier Switch to {packet.carrier_id}.")
+
     # Since this is a Mock of the Modem Client, we simply update an internal state variable, consider this as a success, and ACK back.
     # To allow subsequent testing of any unsucessful carrier switch conditions, we occasionally "fail" and NACK (at a rate based on the user-provided argument).
 
@@ -67,16 +69,21 @@ def handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate):
     carrier_switch_count += 1
 
     if carrier_switch_count % carrier_switch_fail_rate == 0: # Failure
+        logger.info(f"Carrier Switch to '{packet.carrier_id}' failed. NACKing...")
         switch_status = CarrierSwitchAck_StatusField.NACK
     else: # Success
 
         # Change the carrier only if it's valid.
         if packet.carrier_id not in set(item.value for item in CarrierIdField):
-            logger.error(f"Requested unsupported carrier ID '{packet.carrier_id}' for switch. Failing...")
+            logger.error(f"Requested unsupported carrier ID '{packet.carrier_id}' for switch. Failing and NACKing...")
             switch_status = CarrierSwitchAck_StatusField.NACK
         else:
+            logger.info(f"Successfully switched carrier to '{packet.carrier_id}'. ACKing...")
             current_carrier = packet.carrier_id
             switch_status = CarrierSwitchAck_StatusField.ACK
+
+    logger.info(f"Received request to Carrier Switch to {packet.carrier_id}.")
+
 
     # Enqueue ACK/NACK packet into Outgoing Queue.
     outgoing_packets_queue.put(CarrierSwitchAck(

@@ -40,4 +40,6 @@ CMD [\
     "--server-port", "6001",\
     "--modem-address", "modem_mock",\
     "--modem-port", "6002",\
+    "--kafka-address", "kafka",\
+    "--kafka-port", "29092",\
     "--log-level", "INFO"]

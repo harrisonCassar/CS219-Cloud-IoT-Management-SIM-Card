@@ -13,26 +13,26 @@ import threading
 import queue
 import json
 
-from confluent_kafka import Producer
+from confluent_kafka import Producer, Consumer
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
-from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField
+from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform
 
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
+DEFAULT_KAFKA_ADDRESS = "127.0.0.1"
+DEFAULT_KAFKA_PORT = 9092
+KAFKA_TOPIC_SERVER_MESSAGES = ['downstream-request']
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
 modem_packets_queue = queue.Queue()
 num_packets_sent = 0
 num_packets_received = 0
 
-# Setup Kafka Producer/Consumers
-# TODO: Move this to within the actual `main` code, and keep re-trying until success. This will avoid the need to start this Docker container later than the `kafka` container due to it's need to init.
-producer = Producer({
-    'bootstrap.servers':'kafka:29092'
-})
+carrier_id_to_carrier_mapping = gen_carrier_id_to_carrier_mapping()
+carrier_to_carrier_id_mapping = gen_carrier_to_carrier_id_mapping()
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,24 @@ logger = logging.getLogger(__name__)
 # Helper Functions
 #######################################################
 
+def producer_error_cb(err):
+    logger.error(f'{err}')
+
+
 def handle_producer_event_cb(err, msg):
     if err is not None:
         logger.error(f'{err}')
     else:
-        logger.info(f'Produced message on topic {msg.topic()} with value of {msg.value().decode("utf-8")}')
+        logger.debug(f'Produced message on topic {msg.topic()} with value of {msg.value().decode("utf-8")}')
 
 
-def handle_iot_data_packet(packet):
+#######################################################
+# Handler Functions
+#######################################################
+
+## Modem Packet Handlers
+
+def handle_iot_data_packet(packet, producer):
     '''Handler for IoT Data packets. Push data to Kafka.'''
 
     logger.debug("Handling IoT Data Packet...")
@@ -59,8 +69,11 @@ def handle_iot_data_packet(packet):
     nickname = get_device_nickname_by_id(packet.device_id)
 
     # Format our data in the way Kafka expects.
-    data_int = int.from_bytes(packet.data, 'big', signed=True)
-    msg = json.dumps({nickname : data_int}).encode('utf-8')
+    data_dict = {
+        'timestamp' : packet.timestamp.isoformat(),
+        'data' : int.from_bytes(packet.data, 'big', signed=True)
+    }
+    msg = json.dumps(data_dict).encode('utf-8')
 
     # Push to Kafka, so downstream tasks can use!
     producer.poll(0)
@@ -76,8 +89,40 @@ def handle_iot_status_packet(packet):
 
 
 def handle_carrier_switch_ack_packet(packet):
-    # TODO: Implement
+    # TODO: Implement: Want to push status (ACK/NACK) to Flask endpoint.
     logger.debug("Handling Carrier Switch ACK Packet...")
+
+    logger.info(f"Carrier Switch ACK Packet fields: {packet.status}, {carrier_id_to_carrier_mapping.get(packet.carrier_id)}")
+
+
+## Downstream Request Handlers
+
+def handle_carrier_switch_perform(sending_socket, modem_addr_port, data_dict):
+
+    logger.debug("Handling Carrier Switch Perform request...")
+
+    # Determine new carrier.
+    new_carrier = data_dict.get('metadata') # NOTE: Assume this new carrier is a valid option (validated upstream, and worst case: validated at Modem/SIM).
+    new_carrier_id = carrier_to_carrier_id_mapping.get(new_carrier)
+
+    # Make into packet to be sent to Modem.
+    packet = CarrierSwitchPerform(
+        # General Modem Packet Fields
+        flow=ModemPacket_FlowField.CARRIER_SWITCH,
+
+        # General Carrier Switch Flow Packet Fields
+        topic=CarrierSwitchPacket_TopicField.PERFORM,
+
+        # Carrier Switch Perform Packet-Specific Fields
+        carrier_id=new_carrier_id
+    )
+
+    logger.info(f"Received Carrier Switch Perform request to carrier {new_carrier}. Sending to Modem...")
+
+    # Send UDP packet.
+    sending_socket.sendto(packet.to_bytes(), modem_addr_port)
+
+    logger.debug(f"SENT: Carrier Switch Perform with New Carrier '{new_carrier}'")
 
 
 #######################################################
@@ -112,7 +157,7 @@ def listen_from_modem(receiving_socket):
         modem_packets_queue.put(packet)
 
 
-def handle_modem_packet():
+def handle_modem_packet(producer):
     # Dequeue packet, decode, and call (blocking) handler
     logger.info("'Handle Modem Packet' thread beginning...")
 
@@ -123,7 +168,7 @@ def handle_modem_packet():
 
         if packet.flow == ModemPacket_FlowField.IOT:
             if packet.topic == IotPacket_TopicField.DATA:
-                handle_iot_data_packet(packet)
+                handle_iot_data_packet(packet, producer)
             elif packet.topic == IotPacket_TopicField.STATUS:
                 handle_iot_status_packet(packet)
             else:
@@ -142,17 +187,35 @@ def handle_modem_packet():
             continue
 
 
-def listen_and_handle_from_main_server():
-    # TODO: Implement
+def listen_and_handle_from_main_server(sending_socket, modem_addr_port, consumer):
     # KafkaConsumer of messages from main Flask Server, and call respective handler
     logger.info("'Listen and Handle from Main Server' thread beginning...")
 
-    count = 0
-
     while True:
-        time.sleep(5)
-        logger.info(f"'Listen and Handle from Main Server' thread iteration {count}...")
-        count += 1
+        # Receive from Kafka.
+        msg = consumer.poll(1.0) # 1 is the 'timeout': maximum time to block waiting for message, event or callback (default: infinite)
+
+        if msg is None:
+            logger.debug("Attempted to get a Downstream Request message from Kafka, but no message was to be found.")
+            continue
+        elif msg.error():
+            logger.error(f'When reading a Downstream Request message from Kafka: {msg.error()}')
+            continue
+
+        # Decode message.
+        data = msg.value().decode('utf-8')
+        logger.info("Received a Downstream Request.")
+        logger.debug(f"RCV data: {data}")
+        data_dict = json.loads(data)
+
+        # Determine type of request, and handle.
+        request_type = data_dict.get('type')
+
+        if request_type == 'carrier-switch-perform':
+            handle_carrier_switch_perform(sending_socket, modem_addr_port, data_dict)
+        else: # Unsupported or missing
+            logger.error(f"Received malformed Downstream Request message: Unsupported or missing 'type' field: '{request_type if request_type else ''}'")
+            continue
 
 
 #######################################################
@@ -185,6 +248,17 @@ def main():
         type=int,
         help="Port of modem (connected to SIM) client to communicate with. Default: %(default)s",
         default=DEFAULT_MODEM_PORT)
+    parser.add_argument(
+        '--kafka-address',
+        dest='kafka_address',
+        help="IP address of Kafka server to communicate with. Default: %(default)s",
+        default=DEFAULT_KAFKA_ADDRESS)
+    parser.add_argument(
+        '--kafka-port',
+        dest='kafka_port',
+        type=int,
+        help="Port of Kafka server to communicate with. Default: %(default)s",
+        default=DEFAULT_KAFKA_PORT)
 
     args = parser.parse_args()
 
@@ -192,10 +266,25 @@ def main():
     server_port = args.server_port
     modem_address = args.modem_address
     modem_port = args.modem_port
+    kafka_address = args.kafka_address
+    kafka_port = args.kafka_port
     log = args.log
     log_level = args.log_level
 
     setup_logger(log_level=log_level, file_log=log, logger=logger)
+
+    # Setup Kafka Producer and Consumer.
+    producer = Producer({
+        'bootstrap.servers':f'{kafka_address}:{kafka_port}',
+        "error_cb": producer_error_cb
+    })
+
+    consumer = Consumer({
+        'bootstrap.servers':f'{kafka_address}:{kafka_port}',
+        'group.id':'python-consumer',
+        'auto.offset.reset':'latest'
+    })
+    consumer.subscribe(KAFKA_TOPIC_SERVER_MESSAGES)
 
     # Setup UDP sending socket.
     with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as sending_socket:
@@ -229,10 +318,10 @@ def main():
             thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(receiving_socket,), daemon=True)
             threads.append(thread_listen_from_modem)
 
-            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, daemon=True)
+            thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer,), daemon=True)
             threads.append(thread_handle_modem_packet)
 
-            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, daemon=True)
+            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(sending_socket, (modem_address, modem_port), consumer), daemon=True)
             threads.append(thread_listen_and_handle_from_main_server)
 
             # Start thread.

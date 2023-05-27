@@ -15,6 +15,10 @@ services:
     build:
       context: .
       dockerfile: ./flask_server/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+        restart: true
     # flask requires SIGINT to stop gracefully
     # (default stop signal from Compose is SIGTERM)
     stop_signal: SIGINT
@@ -50,6 +54,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
 
   # grafana:
   #   image: grafana/grafana-oss # older stable version: grafana/grafana-enterprise:8.2.0
@@ -68,6 +78,10 @@ services:
     build:
       context: .
       dockerfile: ./udp_server/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+        restart: true
     ports:
       - '6001:6001/udp'
 
@@ -77,6 +91,10 @@ services:
     build:
       context: .
       dockerfile: ./test/modem_mock/Dockerfile
+    depends_on:
+      udp_server:
+        condition: service_healthy
+        restart: true
     ports:
       - '6002:6002/udp'
 

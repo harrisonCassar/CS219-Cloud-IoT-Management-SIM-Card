@@ -16,7 +16,7 @@ To perform a full setup/deployment, we utilize `docker compose`. Refer to the fo
 ### Setup
 Setup is very simple! Simply, install Docker Compose, which can be accomplished by installing Docker Desktop to your machine. See the following article for the download and/or other options for installing Docker Compose: https://docs.docker.com/compose/install/.
 
-For Windows, for Docker, there is a known(?) bug that seemingly causes a memory leak, eating up your computer's memory even if you're not running anything (see https://github.com/docker/for-win/issues/12944). To temporarily solve this until Docker and/or Windows fixes this issue, we need to place a memory limit on WSL as follows:
+For Windows, for Docker, there is a known(?) bug that seemingly causes a memory leak, eating up your computer's memory even if you're not running anything (see https://github.com/docker/for-win/issues/12944). If it becomes annoying/hindering enough, we can temporarily solve this until Docker and/or Windows fixes this issue by placing a memory limit on WSL as follows:
 
 1. Shutdown WSL:
 ```bash
@@ -52,6 +52,6 @@ To setup the local deployment, each subsystem involves a slightly different mean
 - Flask Server: 8000
 - Zookeeper: 2181
 - Kafka: 29092 (Docker containers), 9092 (host), 9101
-- <!-- Grafana: 3000 -->
+- Grafana: 3000 (**NOTE**: currently un-integrated due to some issues with streaming data to it)
 - UDP Server: 6001
 - Modem Client: 6002

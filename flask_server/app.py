@@ -18,8 +18,6 @@ from wtforms.validators import DataRequired
 
 from confluent_kafka import Producer
 
-from backend.util import send_change_carrier_message
-
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DEFAULT_KAFKA_ADDRESS = "kafka"
 DEFAULT_KAFKA_PORT = 29092

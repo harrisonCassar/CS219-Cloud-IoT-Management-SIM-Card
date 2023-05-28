@@ -8,14 +8,12 @@ import sys
 import logging
 import argparse
 import socket
-import time
 import threading
 import queue
 import json
 
 import requests
 from confluent_kafka import Producer, Consumer
-from websockets.sync.client import connect
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform, CarrierSwitchAck_StatusField, CarrierIdField
@@ -33,6 +31,7 @@ DEFAULT_STREAMING_PORT = 8002
 
 KAFKA_TOPIC_SERVER_MESSAGES = ['downstream-request']
 FLASK_SERVER_ENDPOINT_CARRIER_SWITCH_STATUS = "carrier_switch_status"
+GRAFANA_API_KEY = "eyJrIjoiNEpRNDU2TGVZRERVUE4yZ0dxSjF1b1hhOTlFdnVNZm4iLCJuIjoiY3MyMTkiLCJpZCI6MX0="
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 
 modem_packets_queue = queue.Queue()
@@ -67,53 +66,89 @@ def handle_producer_event_cb(err, msg):
 ## Modem Packet Handlers
 
 def handle_iot_data_packet(packet, producer, sending_socket, streaming_addr_port):
-    '''Handler for IoT Data packets. Pushes data to Kafka, and send data to Grafana through Telegraf.'''
+    '''Handler for IoT Data packets. Pushes data to Kafka, and send data to Grafana via Grafana Live.'''
 
     logger.debug("Handling IoT Data Packet...")
 
-    # TODO: See if we can integrate Grafana visualization as well. Tried, but having issues with Grafana's Kafka data source plugin + Grafana Live with Telegraf.
+    # When handling IoT Data packets, we essentially push/route data to different places for
+    # different purposes as follows:
+    #
+    # 1. Push to Kafka topic "<nickname>".
+    #    This satisfies the requirement of the project, and is the "main" Kafka topic for this
+    #    data. We expect, in the standard case, for downstream tasks to consume from/use this
+    #    exclusively.
+    #
+    # 2. Push to Kafka topic "<nickname>-grafana".
+    #    This is a special case to allow for the downstream task of visualization in Grafana.
+    #    Essentially, there exists a Kafka data source plugin for Grafana that essentially
+    #    connects to Kafka, consumes messages from specified topics, and streams that data
+    #    live for display with Grafana.
+    #    - Plugin: https://grafana.com/grafana/plugins/hamedkarbasi93-kafka-datasource/.
+    #
+    #    However, this plugin lacks some critical features
+    #    that makes the live display not ideal for our purposes, including:
+    #    - No support for selection of which data rows (in the Kafka message) to visualize
+    #      (and which to simply ignore), instead opting for ALL data rows to visualize. This
+    #      wouldn't work for our purposes, as we desire to have a "timestamp" field in our
+    #      Kafka messages.
+    #    - Only support to have data graphed with timestamp either determined by the message
+    #      timestamp (when the Kafka message was pushed to Kafka) or when it was consumed from
+    #      Kafka. This will not work for our purposes, as we desire to have the data graphed
+    #      at the time that the IoT data was actually collected from the device, which is
+    #      represented by the "timestamp" field that we've tagged our data with (in the Kafka
+    #      message itself). In practice, we expect that the message timestamp is no more than
+    #      a few seconds after the actual data timestamp, however this is fundamentally not ideal.
+    #
+    #    Therefore, if we want to use this plugin, we'd need to upgrade the plugin for our own
+    #    purposes. In the meantime, however, just for a demonstration of functionality, we
+    #    create this new Kafka topic that is meant JUST FOR THIS PLUGIN'S USE, stripping the
+    #    "timestamp" field from our Kafka message, and having the plugin just graph with the
+    #    message timestamp.
+    #
+    # 3. Stream data directly to Grafana via Grafana Live.
+    #    Grafana v8 introduced Grafana Live, a new streaming capability that allows us to push
+    #    data to the UI in "near real-time". This is extremely efficient and lightweight (not
+    #    needing any plugin and/or assisting backend), and can be achieved by simply performing
+    #    an HTTP POST request to a specific URL in a specific format.
+    #    - https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/
+    #    - https://grafana.com/tutorials/build-a-streaming-data-source-plugin/
+    #
+    #    For our project purposes, this does not need Kafka, and therefore does not satisfy
+    #    project requirements. However, we still do this anyway just to demonstrate the
+    #    functionality.
 
     # Get nickname for device (this will be the easy way we determine what type of data this is).
     nickname = get_device_nickname_by_id(packet.device_id)
 
-    # Format our data in the way Kafka expects.
+    # 1. Push to Kafka topic "<nickname>".
     data_dict = {
         'timestamp' : packet.timestamp.isoformat(),
         'data' : int.from_bytes(packet.data, 'big', signed=True)
     }
     msg = json.dumps(data_dict).encode('utf-8')
 
-    # Push to Kafka, so downstream tasks can use!
     producer.poll(0)
     producer.produce(nickname, msg, callback=handle_producer_event_cb)
     producer.flush()
+    logger.debug(f"Pushed to Kafka topic '{nickname}'.")
 
-    time.sleep(0.01)
+    # 2. Push to Kafka topic "<nickname>-grafana".
+    data_dict = {
+        f'{nickname}' : int.from_bytes(packet.data, 'big', signed=True)
+    }
+    msg = json.dumps(data_dict).encode('utf-8')
 
+    producer.poll(0)
+    producer.produce(f"{nickname}-grafana", msg, callback=handle_producer_event_cb)
+    producer.flush()
+    logger.debug(f"Pushed to Kafka topic '{nickname}-grafana'.")
 
-    # Format the data for Grafana input.
-    formatted_streaming_data = nickname + ' ' + nickname + '=' + str(float(int.from_bytes(packet.data, 'big', signed=True))) + ' ' + str(int(packet.timestamp.timestamp() * 1000000000))
-
-    logger.debug(formatted_streaming_data)
-    logger.debug(streaming_addr_port)
-    logger.debug(socket.gethostbyname(streaming_addr_port[0]))
-
-    formatted_streaming_data_bytes = bytes(formatted_streaming_data, 'utf-8')
-
-    logger.debug(type(formatted_streaming_data_bytes))
-
-    # TODO: Setup data source in Grafana for Grafana Live.
-    # Refer to:
-    # - https://grafana.com/docs/grafana/latest/setup-grafana/set-up-grafana-live/
-    # - https://grafana.com/tutorials/build-a-streaming-data-source-plugin/
-
-    # with connect("ws://grafana:3000/api/live/push/cs") as websocket:
-    #     websocket.send(formatted_streaming_data_bytes)
-    #     msg = websocket.recv()
-    #     logger.debug(msg)
-
-    # Send to Grafana.
-    sending_socket.sendto(formatted_streaming_data_bytes, streaming_addr_port)
+    # 3. Stream data directly to Grafana via Grafana Live
+    stream_id = f"cs219"
+    url = f"http://{streaming_addr_port[0]}:{streaming_addr_port[1]}/api/live/push/{stream_id}"
+    stream_data = f"{nickname} {nickname}={float(int.from_bytes(packet.data, 'big', signed=True))} {int(packet.timestamp.timestamp() * 1000000000)}"
+    resp = requests.post(url, data=stream_data, headers={'Authorization' : f'Bearer {GRAFANA_API_KEY}'})
+    logger.debug(f"Streamed to Grafana Live for stream '{stream_id}' (response: '{resp}').")
 
 
 def handle_iot_status_packet(packet):

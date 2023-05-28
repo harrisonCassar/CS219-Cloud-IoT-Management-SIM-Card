@@ -71,7 +71,7 @@ services:
       - '8002:8002/udp'
 
   grafana:
-    image: grafana/grafana-oss # older stable version: grafana/grafana-enterprise:8.2.0
+    image: grafana/grafana-enterprise:8.2.0 # latest stable version: grafana/grafana-oss
     container_name: grafana
     restart: always
     ports:

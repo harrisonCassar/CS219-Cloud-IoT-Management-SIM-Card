@@ -31,7 +31,7 @@ DEFAULT_FAIL_RATE_CARRIER_SWITCH = 3 # For every 2 successes, we get a fail (on 
 # TODO: Modify sensors and their associated rategroups to reflect more "real-life" scenario.
 SENSORS_MOCKED = {
     # Rategroup (Hz) : [(Device ID, Min Data Value, Max Data Value), ...]
-    1   : [(3, 0, 1000), (2, 0, 360), (1, -16, 16)],
+    1   : [(3, 0, 1000), (2, 0, 360), (1, -16, 16)], # Need to keep at 1Hz, or else Grafana + Kafka cannot keep up due to bottleneck somewhere in upstream of IoT data.
     10  : [],
     100 : []
 }

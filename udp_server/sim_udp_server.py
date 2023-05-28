@@ -413,7 +413,7 @@ def main():
             # 1. Listen for + push all incoming UDP packets into (thread-safe) queue
             # 2. Drain queue of 1 UDP packet (if there is one present), decode packet, run handler(s)
             #    - Handlers include:
-            #        - For IoT data, push to KafkaProducer + Grafana Live socket (through Telegraf for streaming)
+            #        - For IoT data, push to Kafka topic(s) + Grafana Live
             #        - For N/ACK, update internal state (NEED TO BE THREAD-SAFE...?)
             # 3. KafkaConsumer: listen for "carrier_switch" topic messages, and then send UDP carrier switch to modem client
             #    - send "in-progress" to state Flask endpoint

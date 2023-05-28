@@ -61,15 +61,6 @@ services:
       timeout: 10s
       retries: 10
 
-  telegraf:
-    image: telegraf
-    container_name: telegraf
-    restart: always
-    volumes:
-      - ./flask_server/config/telegraf.conf:/etc/telegraf/telegraf.conf:ro
-    ports:
-      - '8002:8002/udp'
-
   grafana:
     image: grafana/grafana-enterprise:8.2.0 # latest stable version: grafana/grafana-oss
     container_name: grafana

@@ -1,10 +1,8 @@
 Required TODOs:
 - Nicer front-end.
-- Visualizations (+ live/auto-refresh visualizations).
 - Actual Modem Client.
 - Setup Docker-deployable setup for "local" (Modem/SIM Client) and "cloud" (everything else) subsystems. Currently, we're just deploying to one machine... perhaps this okay if we separate the networks...?
 
 Desirable TODOs:
 - Live/auto-refresh on status (not sure where we need to push the status/state, but if its to a Flask endpoint, that's ideal, since we already have that set-up).
 - Filler "About Us" and "Background" pages for the project. Just can be basic text.
-- Grafana integration? (Specifically Grafana Live?)

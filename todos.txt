@@ -5,4 +5,5 @@ Required TODOs:
 
 Desirable TODOs:
 - Live/auto-refresh on status (not sure where we need to push the status/state, but if its to a Flask endpoint, that's ideal, since we already have that set-up).
-- Filler "About Us" and "Background" pages for the project. Just can be basic text.
+- Add multiple sensors of a certain type (i.e. multiple IMU sensors) (likely let's add a device ID into the Kafka message?)
+- Add "About Us" and "Background" pages for the project. Just can be basic text.

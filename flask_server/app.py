@@ -21,6 +21,8 @@ from confluent_kafka import Producer
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DEFAULT_KAFKA_ADDRESS = "kafka"
 DEFAULT_KAFKA_PORT = 29092
+DEFAULT_GRAFANA_ADDRESS = "localhost" # Grafana exposes itself on the host at port 3000
+DEFAULT_GRAFANA_PORT = 3000
 KAFKA_TOPIC_DOWNSTREAM_REQUESTS = 'downstream-request'
 
 ######################## Helper functions #######################
@@ -88,8 +90,7 @@ def about():
 
 @app.route('/grafana')
 def grafana_home():
-    # TODO: Attempt to get Grafana going.
-    return redirect('http://localhost:3000/')
+    return redirect(f'http://localhost:{DEFAULT_GRAFANA_PORT}')
 
 
 ## routines

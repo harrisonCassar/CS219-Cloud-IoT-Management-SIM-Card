@@ -9,6 +9,13 @@ For our "local" system, we have the following main components:
 For our "cloud" system, we have the following main components:
 - Python UDP server (mediates communication between the Python modem client and the main cloud server)
 - Main Python Flask server (manages/accumulates/processes all IoT data for storage and front-end display, as well as expose functionality to perform carrier switches on SIM card)
+- Grafana (for data visualization)
+- Kafka + Zookeeper (for message passing/data accumulation)
+
+## Grafana Data Visualization
+Here's an example dashboard that we've thrown together for display of this "dummy" setup:
+
+![Grafana Example Dashboard](/img/grafana_dashboard_example_screenshot.PNG)
 
 ## Setup/Run/Manage in Docker Containers
 To perform a full setup/deployment, we utilize `docker compose`. Refer to the following subsections to setup (and then run) our application.

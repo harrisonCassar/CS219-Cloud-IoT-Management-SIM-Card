@@ -1,6 +1,8 @@
 Required TODOs:
 - Nicer front-end.
 - Actual Modem Client.
+- Add documentation for adding Grafana API key for setup on fresh deployment. Perhaps this can be solved by deploying the cloud system once to a cloud provider/host?
+- Add Kafka data source plugin downloading/deployment with Grafana container setup/deployment.
 - Setup Docker-deployable setup for "local" (Modem/SIM Client) and "cloud" (everything else) subsystems. Currently, we're just deploying to one machine... perhaps this okay if we separate the networks...?
 
 Desirable TODOs:

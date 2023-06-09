@@ -36,8 +36,17 @@ class SimpleSIMReader:
     RESPONSE_TEST = "00f400002281030134000202828103010029140D0A2B435245473A20312C310D0A0D0A4F4B0D0A"
 
     def __init__(self):
-        self.sr = SIM_Reader()
-        self.sr.wait_for_card()
+        self.is_connected = False
+
+    def attempt_connection(self):
+        # Returns True if setup was successfull
+        try:
+            self.sr = SIM_Reader()
+            self.sr.wait_for_card()
+            self.is_connected = True
+        except:
+            self.is_connected = False
+
     
     def ins_response_test(self):
         (data, sw), parsed = self.sr.send_apdu_text(SimpleSIMReader.RESPONSE_TEST)

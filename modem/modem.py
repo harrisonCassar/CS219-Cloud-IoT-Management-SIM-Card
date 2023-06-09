@@ -42,6 +42,7 @@ incoming_packets_queue = queue.Queue()
 outgoing_packets_queue = queue.Queue()
 packets_for_sim = queue.Queue()
 ssm = SimpleSIMReader()
+ssm.attempt_connection() # try to connect to SIM
 
 num_packets_sent = 0
 num_packets_received = 0
@@ -63,7 +64,12 @@ def handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate):
     
 
 def poll_sim():
+    if not ssm.is_connected:
+        logger.info("Unable to connect to SIM. Ending poll_sim thread.")
+        return
+
     while True:
+        print("enter")
         data,sw = ssm.ins_fetch()
         logger.info(f"Making FETCH to SIM: {data}")
 

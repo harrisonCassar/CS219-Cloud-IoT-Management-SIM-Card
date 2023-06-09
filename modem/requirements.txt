@@ -1,0 +1,6 @@
+bitstruct==8.17.0
+temporenc==0.1.0
+# swig
+pytlv==0.71
+pyscard==2.0.7
+

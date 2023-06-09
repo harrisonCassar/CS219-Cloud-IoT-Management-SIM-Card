@@ -3,6 +3,11 @@ from smartcard.Exceptions import *
 from smartcard.System import *
 from pytlv.TLV import TLV
 
+DEBUG = False
+def dprint(text):
+    if DEBUG:
+        dprint(text)
+
 
 class SIM_Reader(object):
     def __init__(self):
@@ -70,7 +75,7 @@ class SIM_Reader(object):
         tlv = fcp[skip:]
 
         parsed_result = tlvparser.parse(tlv)
-        print(parsed_result)
+        dprint(parsed_result)
         return parsed_result
 
     def imsi(self, imsi):
@@ -93,18 +98,18 @@ class SIM_Reader(object):
             pdu_gr = pdu[0:2] + 'c00000' + sw[2:4]
             data, sw = self.send_pdu(pdu_gr)
 
-        print(self.apdu_to_string())
+        dprint(self.apdu_to_string())
         if sw == '6a82':
-            print("============================")
+            dprint("============================")
             return (data, sw), None
         else:
-            print(data)
+            dprint(data)
             try:
                 parsed = self.process_fcp(data)
             except:
-                print("FCP Parse Failed...")
+                dprint("FCP Parse Failed...")
                 parsed = None
-            print("============================")
+            dprint("============================")
             return (data, sw), parsed
 
     def send_apdu_text(self, pdu):
@@ -117,18 +122,18 @@ class SIM_Reader(object):
             pdu_gr = pdu[0:2] + 'c00000' + sw[2:4]
             data, sw = self.send_pdu(pdu_gr)
 
-        print(self.apdu_to_string())
+        dprint(self.apdu_to_string())
         if sw == '6a82':
-            print("============================")
+            dprint("============================")
             return (data, sw), None
         else:
-            print(data)
+            dprint(data)
             try:
                 parsed = self.process_fcp(data)
             except:
-                print("FCP Parse Failed...")
+                dprint("FCP Parse Failed...")
                 parsed = None
-            print("============================")
+            dprint("============================")
             return (data, sw), parsed
 
     def send_apdu_without_length(self, ins, p1='00', p2='00', data=""):
@@ -142,6 +147,6 @@ class SIM_Reader(object):
             pdu_gr = pdu[0:2] + 'c00000' + sw[2:4]
             data, sw = self.send_pdu(pdu_gr)
 
-        print(self.apdu_to_string())
-        print("============================")
+        dprint(self.apdu_to_string())
+        dprint("============================")
         return data, sw

@@ -1,4 +1,5 @@
 from sim_reader import SIM_Reader
+from common.protocol_headers import decode_packet
 """
 Helper functions for working with SIM
 """
@@ -17,7 +18,8 @@ def is_open_channel_command(command:str):
 
 def extract_send_data_packet(send_data_command):
     str_rep = send_data_command[30:]
-    return str_rep
+    bytes_rep = bytes.fromhex(str_rep)
+    return decode_packet(bytes_rep)
 
 def int_to_hex_string(value):
     hex_string = format(value, '02x')
@@ -25,6 +27,10 @@ def int_to_hex_string(value):
 
 
 class SimpleSIMReader:
+    """
+    Wrapper around SIMReader provided from eSIM-Loader repository: https://github.com/JinghaoZhao/eSIM-Loader/blob/master/sim_reader.py
+    """
+
     INS_FETCH = "00F3000015"
     INS_TERMINAL_START = "00f40000"
     RESPONSE_TEST = "00f400002281030134000202828103010029140D0A2B435245473A20312C310D0A0D0A4F4B0D0A"
@@ -42,7 +48,7 @@ class SimpleSIMReader:
         return data, sw
     
     def send_packet(self, packet: str):
-        length = len(packet) / 2
+        length = int(len(packet) / 2)
         length_str = int_to_hex_string(length)
         command = SimpleSIMReader.INS_TERMINAL_START + length_str + packet
         (data, sw), parsed = self.sr.send_apdu_text(command)

@@ -1,3 +1,4 @@
+# Source: https://github.com/JinghaoZhao/eSIM-Loader/blob/master/sim_reader.py
 from smartcard.CardRequest import *
 from smartcard.Exceptions import *
 from smartcard.System import *

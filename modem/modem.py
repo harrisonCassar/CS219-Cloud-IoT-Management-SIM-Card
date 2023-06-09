@@ -17,7 +17,7 @@ import threading
 import queue
 import random
 from datetime import datetime
-from sim_helpers import SimpleSIMReader, is_open_channel_command, is_receive_data_command, is_send_data_command
+from sim_helpers import SimpleSIMReader, is_open_channel_command, is_receive_data_command, is_send_data_command, extract_send_data_packet
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierIdField, CarrierSwitchAck, CarrierSwitchAck_StatusField, IoTData
@@ -65,17 +65,21 @@ def handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate):
 def poll_sim():
     while True:
         data,sw = ssm.ins_fetch()
-        logger.info(f"Recieved FETCH from SIM: {data}")
+        logger.info(f"Making FETCH to SIM: {data}")
 
         if is_send_data_command(data):
-            logger.info("Parsed as SEND DATA proactive command")
+            logger.info("Received SEND DATA proactive command")
+            packet = extract_send_data_packet(data)
+            logger.info(f"Successfully decoded packet: {packet.flow} {packet.topic}")
+            outgoing_packets_queue.put(packet)
         elif is_receive_data_command(data):
             logger.info("Parsed as RECEIVE DATA proactive command")
-
+            logger.info(f"Have {packets_for_sim.qsize()} packets available")
+            packet = packets_for_sim.get(block=True)
+            logger.info(f"sending {str(packet.to_bytes().hex())}")
+            ssm.send_packet(str(packet.to_bytes().hex()))
+            logger.info(f"Sent packet to SIM")
         time.sleep(0.1)
-
-
-
 
 #######################################################
 # Thread Target Functions

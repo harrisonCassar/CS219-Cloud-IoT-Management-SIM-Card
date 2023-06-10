@@ -38,7 +38,7 @@ CMD [\
     "/app/sim_udp_server.py", \
     "--server-address", "udp_server",\
     "--server-port", "6001",\
-    "--modem-address", "modem_mock",\
+    #"--modem-address", "modem_mock",\
     "--modem-port", "6002",\
     "--kafka-address", "kafka",\
     "--kafka-port", "29092",\

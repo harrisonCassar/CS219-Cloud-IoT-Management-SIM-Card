@@ -199,7 +199,7 @@ def handle_carrier_switch_perform(sending_socket, modem_addr_port, data_dict):
         carrier_id=new_carrier_id
     )
 
-    logger.info(f"Received Carrier Switch Perform request to carrier {new_carrier}. Sending to Modem...")
+    logger.info(f"Received Carrier Switch Perform request to carrier {new_carrier}. Sending to Modem at {modem_addr_port}...")
 
     # Send UDP packet.
     sending_socket.sendto(packet.to_bytes(), modem_addr_port)

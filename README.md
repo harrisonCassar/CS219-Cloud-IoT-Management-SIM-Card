@@ -86,3 +86,4 @@ To setup the local deployment, each subsystem involves a slightly different mean
 - Run below commands.
 `chmod 400 cs219-instance-2.pem`
 `ssh -i "cs219-instance-2.pem" ubuntu@ec2-34-211-7-98.us-west-2.compute.amazonaws.com`
+- Modem Client: 6002 (locally hosted, not in Docker container)

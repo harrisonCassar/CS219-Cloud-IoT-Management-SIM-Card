@@ -105,15 +105,17 @@ def listen_from_server(receiving_socket):
             raw_data, sender_addr = receiving_socket.recvfrom(SERVER_MESSAGE_RCV_BUF_SIZE)
         except BlockingIOError:
             # No data to receive yet; spin!
+            logger.warning("No data to recieve yet from the server...")
+            time.sleep(1)
             continue
 
-        logger.debug(f"RCV: {len(raw_data)} bytes from sender {sender_addr}")
+        logger.info(f"RCV: {len(raw_data)} bytes from sender {sender_addr}")
         num_packets_received += 1
 
         # Decode received data.
         packet = decode_packet(raw_data)
 
-        logger.debug(f"Decoded packet {type(packet)} from received bytes.")
+        logger.info(f"Decoded packet {type(packet)} from received bytes.")
 
         # Enqueue into Incoming Queue.
         incoming_packets_queue.put(packet)

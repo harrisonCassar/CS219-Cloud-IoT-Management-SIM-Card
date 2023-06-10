@@ -80,3 +80,9 @@ To setup the local deployment, each subsystem involves a slightly different mean
 - Grafana: 3000 (**NOTE**: currently un-integrated due to some issues with streaming data to it)
 - UDP Server: 6001
 - Modem Client: 6002
+
+## Cloud SSH Steps
+- Acquire key in file "cs219-instance-2.pem" (keep in root directory and DO NOT COMMIT)
+- Run below commands.
+`chmod 400 cs219-instance-2.pem`
+`ssh -i "cs219-instance-2.pem" ubuntu@ec2-34-211-7-98.us-west-2.compute.amazonaws.com`

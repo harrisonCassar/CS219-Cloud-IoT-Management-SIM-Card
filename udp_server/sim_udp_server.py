@@ -22,7 +22,11 @@ DEFAULT_FLASK_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_FLASK_SERVER_PORT= 8000
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
-DEFAULT_MODEM_ADDRESS = "127.0.0.1"
+DEFAULT_MODEM_ADDRESS = "gateway.docker.internal"
+# Note on DEFAULT_MODEM_ADDRESS
+# Assuming our UDP server is working locally?
+# Can also try: host.docker.internal if this doesn't work for your machine
+# https://docs.docker.com/desktop/networking/#i-want-to-connect-from-a-container-to-a-service-on-the-host
 DEFAULT_MODEM_PORT = 6002
 DEFAULT_KAFKA_ADDRESS = "127.0.0.1"
 DEFAULT_KAFKA_PORT = 9092

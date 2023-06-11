@@ -69,23 +69,28 @@ def poll_sim():
         return
 
     while True:
-        print("enter")
+        time.sleep(1) # Could probably change this poll rate?
         data,sw = ssm.ins_fetch()
-        logger.info(f"Making FETCH to SIM: {data}")
+        logger.debug(f"Making FETCH to SIM: {data}")
 
         if is_send_data_command(data):
-            logger.info("Received SEND DATA proactive command")
+            logger.debug("Received SEND DATA proactive command")
             packet = extract_send_data_packet(data)
-            logger.info(f"Successfully decoded packet: {packet.flow} {packet.topic}")
+            logger.debug(f"Successfully decoded packet: {packet.flow} {packet.topic}")
             outgoing_packets_queue.put(packet)
         elif is_receive_data_command(data):
-            logger.info("Parsed as RECEIVE DATA proactive command")
-            logger.info(f"Have {packets_for_sim.qsize()} packets available")
+            logger.debug("Parsed as RECEIVE DATA proactive command")
+            # if packets_for_sim.qsize() == 0:
+            #     logger.debug("No packets to send to SIM ... Spinning.")
+            #     continue
+
+            logger.debug(f"Have {packets_for_sim.qsize()} packets available")
             packet = packets_for_sim.get(block=True)
-            logger.info(f"sending {str(packet.to_bytes().hex())}")
+            logger.debug(f"sending {str(packet.to_bytes().hex())}")
             ssm.send_packet(str(packet.to_bytes().hex()))
-            logger.info(f"Sent packet to SIM")
-        time.sleep(0.1)
+            logger.debug(f"Sent packet to SIM")
+        else:
+            logger.error("INVALID RESPONSE FROM SIM")
 
 #######################################################
 # Thread Target Functions

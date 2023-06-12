@@ -18,11 +18,15 @@ from confluent_kafka import Producer, Consumer
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform, CarrierSwitchAck_StatusField, CarrierIdField
 
+# SET HERE
+IS_RUNNING_LOCALLY = True
+
 DEFAULT_FLASK_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_FLASK_SERVER_PORT= 8000
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "gateway.docker.internal"
+# DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 # Note on DEFAULT_MODEM_ADDRESS
 # Assuming our UDP server is working locally?
 # Can also try: host.docker.internal if this doesn't work for your machine
@@ -41,6 +45,8 @@ MODEM_MESSAGE_RCV_BUF_SIZE = 1024
 modem_packets_queue = queue.Queue()
 num_packets_sent = 0
 num_packets_received = 0
+modem_address = None
+modem_port = None
 
 carrier_id_to_carrier_mapping = gen_carrier_id_to_carrier_mapping()
 carrier_to_carrier_id_mapping = gen_carrier_to_carrier_id_mapping()
@@ -221,6 +227,7 @@ def listen_from_modem(receiving_socket):
     logger.info("'Listen From Modem' thread beginning...")
 
     global num_packets_received
+    global modem_address
 
     while True:
 
@@ -228,8 +235,8 @@ def listen_from_modem(receiving_socket):
         try:
             raw_data, sender_addr = receiving_socket.recvfrom(MODEM_MESSAGE_RCV_BUF_SIZE)
 
-            # TODO: cache the sender_addr here and modify modem_address
-            sender_address, sender_port = sender_addr
+            if not IS_RUNNING_LOCALLY:# cache the sender_addr as the modem address if we are not running locally
+                modem_address, _ = sender_addr
 
         except BlockingIOError:
             # No data to receive yet; spin!
@@ -277,9 +284,10 @@ def handle_modem_packet(producer, flask_server_addr_port, sending_socket, stream
             continue
 
 
-def listen_and_handle_from_main_server(sending_socket, modem_addr_port, consumer):
+def listen_and_handle_from_main_server(sending_socket, _, consumer):
     # KafkaConsumer of messages from main Flask Server, and call respective handler
     logger.info("'Listen and Handle from Main Server' thread beginning...")
+    global modem_address, modem_port
 
     while True:
         # Receive from Kafka.
@@ -302,7 +310,7 @@ def listen_and_handle_from_main_server(sending_socket, modem_addr_port, consumer
         request_type = data_dict.get('type')
 
         if request_type == 'carrier-switch-perform':
-            handle_carrier_switch_perform(sending_socket, modem_addr_port, data_dict)
+            handle_carrier_switch_perform(sending_socket, (modem_address, modem_port), data_dict)
         else: # Unsupported or missing
             logger.error(f"Received malformed Downstream Request message: Unsupported or missing 'type' field: '{request_type if request_type else ''}'")
             continue
@@ -373,6 +381,8 @@ def main():
 
     args = parser.parse_args()
 
+    global modem_address, modem_port
+
     server_address = args.server_address
     server_port = args.server_port
     modem_address = args.modem_address
@@ -436,7 +446,7 @@ def main():
             thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer, (flask_server_address, flask_server_port), sending_socket, (streaming_address, int(streaming_port))), daemon=True)
             threads.append(thread_handle_modem_packet)
 
-            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(sending_socket, (modem_address, modem_port), consumer), daemon=True)
+            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(sending_socket, (None, None), consumer), daemon=True)
             threads.append(thread_listen_and_handle_from_main_server)
 
             # Start thread.

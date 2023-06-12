@@ -4,6 +4,49 @@
     <meta charset="UTF-8">
     <title>Home - CS219</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body {
+        background-color: #202124;
+        color: #D3D3D3;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 28px;
+        text-align: center;
+        font-family: 'Courier New', Courier, monospace, sans-serif;
+      }
+
+      h3 {
+        font-size: 20px;
+        text-decoration: underline;
+        font-family: DejaVu Sans Mono, monospace;
+      }
+
+      p {
+        font-size: 15px;
+        font-family: DejaVu Sans Mono, monospace;
+      }
+
+      a {
+        color: #D3D3D3;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      footer {
+        margin-top: 50px;
+      }
+
+      
+    </style>
   </head>
   <body>
 
@@ -16,28 +59,26 @@
 
     <h3><u>Carrier Switch:</u> Change connected carrier on device</h3>
       <div id="transfer">
-        <p>Specify the ID of the carrier below.</p>
-        <p>Current carrier: {{ current_carrier }}</p>
-        <p>Current carrier switch status: {{ carrier_switch_status }}</p>
-        <form action="{{ url_for('carrier_switch') }}" method="post" enctype="multipart/form-data">
+        <p>Select a carrier to switch the SIM to in the dropdown and view the carrier status below.</p>
+        <form action="{{ url_for('carrier_switch') }}" method="post" enctype="multipart/form-data" style="text-align: center;">
           {{ form_change_carrier.csrf_token }}
           <p>Carrier: {{ form_change_carrier.carrier }}</p>
           <div class="button_with_status">
             {{ form_change_carrier.submit }}
           </div>
         </form>
+        <ul>
+        <li><p><b>Current carrier:</b> {{ current_carrier }}</p></li>
+        <li><p><b>Current carrier switch status:</b> {{ carrier_switch_status }}</p></li>
       </div>
 
+      <br>
     <h3><u>Downstream Task on IoT Data:</u> View livestream visualization of IoT Data</h3>
-    In order to visualize the livestream of IoT Data, we utilize Grafana. <a href="http://localhost:8000/grafana">Click here to go to Grafana.</a>
-
-    <br>
-    <br>
-    <br>
+    <p>We use grafana to visualize the livestream of the IoT Data sent to the cloud. <a href="http://localhost:8000/grafana">Click here to go to Grafana.</a></p>
 
     <footer>
       <h3>Acknowledgements</h3>
-      <p>Developers: Harrison (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>), Ricky (<a href="mailto:ricky99.guo@gmail.com">ricky99.guo@gmail.com</a>), Disha (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>), and Albert (<a href="mailto:albertstanley@g.ucla.edu">albertstanley@g.ucla.edu</a>)</p>
+      <p>Developers: Harrison (<a href="mailto:harrison.cassar@gmail.com">harrison.cassar@gmail.com</a>), Ricky (<a href="mailto:ricky99.guo@gmail.com">ricky99.guo@gmail.com</a>), Disha (<a href="mailto:dmzambani@gmail.com">dmzambani@gmail.com</a>), and Albert (<a href="mailto:albertstanley@g.ucla.edu">albertstanley@g.ucla.edu</a>)</p>
       <p>Developed as a part of UCLA's Spring 2023 COM SCI 219: Cloud Computing course.</p>
       <p>Special thanks to Mentor Jinghao Zhao and Professor Songwu Lu for guidance throughout the project development process. </p>
     </footer>

@@ -21,8 +21,10 @@ from sim_helpers import SimpleSIMReader, is_open_channel_command, is_receive_dat
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierIdField, CarrierSwitchAck, CarrierSwitchAck_StatusField, IoTData
+from pytz import timezone
+import pytz
 
-DEFAULT_SERVER_ADDRESS = "127.0.0.1"
+DEFAULT_SERVER_ADDRESS = "ec2-35-90-104-65.us-west-2.compute.amazonaws.com"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
@@ -33,7 +35,7 @@ DEFAULT_FAIL_RATE_CARRIER_SWITCH = 3 # For every 2 successes, we get a fail (on 
 # TODO: Modify sensors and their associated rategroups to reflect more "real-life" scenario.
 SENSORS_MOCKED = {
     # Rategroup (Hz) : [(Device ID, Min Data Value, Max Data Value), ...]
-    1   : [(1, -16, 16)], # Need to keep at 1Hz, or else Grafana + Kafka cannot keep up due to bottleneck somewhere in upstream of IoT data.
+    1   : [(1, 0, 100)], # Need to keep at 1Hz, or else Grafana + Kafka cannot keep up due to bottleneck somewhere in upstream of IoT data.
     10  : [],
     100 : []
 }
@@ -166,6 +168,7 @@ def poll_iot_sensors():
 
             nickname = get_device_nickname_by_id(device_id)
             timestamp = datetime.now()
+            timestamp = timestamp.astimezone(timezone('US/Pacific'))
             data_int = random.randint(min_value, max_value)
             data = data_int.to_bytes(4, 'big', signed=True)
 
@@ -289,8 +292,8 @@ def main():
         # Setup UDP receiving socket.
         with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as receiving_socket:
             print(modem_address, modem_port)
-            receiving_socket.bind((modem_address, modem_port))
-            receiving_socket.settimeout(0)
+            # receiving_socket.bind((modem_address, modem_port))
+            # receiving_socket.settimeout(0)
 
             logger.debug(f"Init receiving modem socket at modem address '{modem_address}' and port '{modem_port}'.")
 
@@ -307,7 +310,7 @@ def main():
 
             threads = []
 
-            thread_listen_from_server = threading.Thread(target=listen_from_server, args=(receiving_socket,), daemon=True)
+            thread_listen_from_server = threading.Thread(target=listen_from_server, args=(sending_socket,), daemon=True)
             threads.append(thread_listen_from_server)
 
             thread_handle_server_packets = threading.Thread(target=handle_server_packets, args=(carrier_switch_fail_rate,), daemon=True)

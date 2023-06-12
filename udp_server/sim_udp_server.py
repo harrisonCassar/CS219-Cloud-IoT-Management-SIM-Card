@@ -227,6 +227,10 @@ def listen_from_modem(receiving_socket):
         # Receive up to specified number of bytes (if there are any).
         try:
             raw_data, sender_addr = receiving_socket.recvfrom(MODEM_MESSAGE_RCV_BUF_SIZE)
+
+            # TODO: cache the sender_addr here and modify modem_address
+            sender_address, sender_port = sender_addr
+
         except BlockingIOError:
             # No data to receive yet; spin!
             continue

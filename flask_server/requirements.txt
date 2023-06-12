@@ -1,6 +1,7 @@
 Flask==2.0.3
 Flask_Bootstrap==3.3.7.1
 Flask_WTF==1.0.1
+flask_cors==3.0.10
 WTForms==3.0.0
 bitstruct==8.17.0
 temporenc==0.1.0

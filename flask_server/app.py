@@ -10,6 +10,7 @@ import os
 import json
 
 from flask import Flask, render_template, redirect, url_for, jsonify, request, make_response
+from flask_cors import CORS
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, SelectField
@@ -60,6 +61,10 @@ app = Flask(__name__, static_folder='static')
 
 # Flask-WTF Forms
 Bootstrap(app)
+
+# Flask CORS (for testing on localhost)
+CORS(app)
+
 # csrf = CSRFProtect(app)
 app.config['SECRET_KEY'] = 'tfz1wBgMIh3r8aYRivXuo4imp6B7C9Aa' # Flask-WTF requires any encryption key.
 

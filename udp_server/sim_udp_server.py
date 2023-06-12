@@ -22,7 +22,11 @@ DEFAULT_FLASK_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_FLASK_SERVER_PORT= 8000
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
-DEFAULT_MODEM_ADDRESS = "127.0.0.1"
+DEFAULT_MODEM_ADDRESS = "gateway.docker.internal"
+# Note on DEFAULT_MODEM_ADDRESS
+# Assuming our UDP server is working locally?
+# Can also try: host.docker.internal if this doesn't work for your machine
+# https://docs.docker.com/desktop/networking/#i-want-to-connect-from-a-container-to-a-service-on-the-host
 DEFAULT_MODEM_PORT = 6002
 DEFAULT_KAFKA_ADDRESS = "127.0.0.1"
 DEFAULT_KAFKA_PORT = 9092
@@ -223,6 +227,10 @@ def listen_from_modem(receiving_socket):
         # Receive up to specified number of bytes (if there are any).
         try:
             raw_data, sender_addr = receiving_socket.recvfrom(MODEM_MESSAGE_RCV_BUF_SIZE)
+
+            # TODO: cache the sender_addr here and modify modem_address
+            sender_address, sender_port = sender_addr
+
         except BlockingIOError:
             # No data to receive yet; spin!
             continue

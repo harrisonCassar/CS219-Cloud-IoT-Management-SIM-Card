@@ -229,7 +229,7 @@ def listen_from_modem(receiving_socket):
     logger.info("'Listen From Modem' thread beginning...")
 
     global num_packets_received
-    global modem_address
+    global modem_address, modem_port
 
     while True:
 
@@ -238,7 +238,7 @@ def listen_from_modem(receiving_socket):
             raw_data, sender_addr = receiving_socket.recvfrom(MODEM_MESSAGE_RCV_BUF_SIZE)
 
             if not IS_RUNNING_LOCALLY:# cache the sender_addr as the modem address if we are not running locally
-                modem_address, _ = sender_addr
+                modem_address, modem_port = sender_addr
 
         except BlockingIOError:
             # No data to receive yet; spin!

@@ -416,8 +416,8 @@ def main():
     # Setup UDP sending socket.
     with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as sending_socket:
 
-        sending_socket.settimeout(0)
-        logger.debug(f"Init sending socket, with plans to send to modem address '{modem_address}' and port '{modem_port}'.")
+        # sending_socket.settimeout(0)
+        # logger.debug(f"Init sending socket, with plans to send to modem address '{modem_address}' and port '{modem_port}'.")
 
         # Setup UDP receiving socket.
         with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as receiving_socket:
@@ -448,7 +448,7 @@ def main():
             thread_handle_modem_packet = threading.Thread(target=handle_modem_packet, args=(producer, (flask_server_address, flask_server_port), sending_socket, (streaming_address, int(streaming_port))), daemon=True)
             threads.append(thread_handle_modem_packet)
 
-            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(sending_socket, (None, None), consumer), daemon=True)
+            thread_listen_and_handle_from_main_server = threading.Thread(target=listen_and_handle_from_main_server, args=(receiving_socket, (None, None), consumer), daemon=True)
             threads.append(thread_listen_and_handle_from_main_server)
 
             # Start thread.

@@ -34,6 +34,7 @@ DEFAULT_STREAMING_ADDRESS = "127.0.0.1"
 DEFAULT_STREAMING_PORT = 8002
 
 KAFKA_TOPIC_SERVER_MESSAGES = ['downstream-request']
+KAFKA_TOPIC_CARRIER_SWITCH_ACK = 'carrier-switch-ack'
 FLASK_SERVER_ENDPOINT_CARRIER_SWITCH_STATUS = "carrier_switch_status"
 GRAFANA_API_KEY = "eyJrIjoiUEk0bThQYnB5VGQ4a2RmallFMHB5Sml3TTA2WnNVQ3giLCJuIjoiY3MyMTktY2xvdWQiLCJpZCI6MX0="
 MODEM_MESSAGE_RCV_BUF_SIZE = 1024
@@ -160,12 +161,14 @@ def handle_iot_status_packet(packet):
     logger.info(f"IoT Status: Device ID ")
 
 
-def handle_carrier_switch_ack_packet(packet, flask_server_addr_port):
+def handle_carrier_switch_ack_packet(packet, producer, flask_server_addr_port):
     '''Handler for Carrier Switch ACK packets. Pushes status to Main Flask server endpoint.'''
 
     logger.debug("Handling Carrier Switch ACK Packet...")
 
     logger.info(f"Carrier Switch ACK Packet fields: {packet.status}, {carrier_id_to_carrier_mapping.get(packet.carrier_id)}")
+
+    ## Push ACK to Flask endpoint
 
     # Setup args.
     url = f'http://{flask_server_addr_port[0]}:{flask_server_addr_port[1]}/{FLASK_SERVER_ENDPOINT_CARRIER_SWITCH_STATUS}'
@@ -179,6 +182,20 @@ def handle_carrier_switch_ack_packet(packet, flask_server_addr_port):
 
     # Send POST request to Flask server to update Carrier Switch status.
     requests.post(url, json=args)
+
+    ## Push ACK to Kafka topic
+
+    data_dict = {
+        'status' : status,
+        'carrier' : carrier
+    }
+    msg = json.dumps(data_dict).encode('utf-8')
+
+    producer.poll(0)
+    producer.produce(KAFKA_TOPIC_CARRIER_SWITCH_ACK, msg, callback=handle_producer_event_cb)
+    producer.flush()
+    logger.debug(f"Pushed ACK ({status}, {carrier}) to Kafka topic '{KAFKA_TOPIC_CARRIER_SWITCH_ACK}'.")
+
 
 
 ## Downstream Request Handlers
@@ -268,7 +285,7 @@ def handle_modem_packet(producer, flask_server_addr_port, sending_socket, stream
             if packet.topic == CarrierSwitchPacket_TopicField.PERFORM:
                 logger.warning(f"Did not expect to receive Carrier Switch Perform Packet from the Modem. Ignoring...")
             elif packet.topic == CarrierSwitchPacket_TopicField.ACK:
-                handle_carrier_switch_ack_packet(packet, flask_server_addr_port)
+                handle_carrier_switch_ack_packet(packet, producer, flask_server_addr_port)
             else:
                 logger.error(f"Unsupported Carrier Switch Flow Packet with Topic value {packet.topic}.")
                 continue

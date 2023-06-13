@@ -112,8 +112,8 @@ def listen_from_server(receiving_socket):
             raw_data, sender_addr = receiving_socket.recvfrom(SERVER_MESSAGE_RCV_BUF_SIZE)
         except BlockingIOError:
             # No data to receive yet; spin!
-            logger.warning("No data to recieve yet from the server...")
-            time.sleep(1)
+            logger.warning("No data to receive yet from the server...")
+            time.sleep(0.2)
             continue
 
         logger.info(f"RCV: {len(raw_data)} bytes from sender {sender_addr}")
@@ -176,7 +176,7 @@ def poll_iot_sensors():
 
             # pass the polled data to the SIM
 
-            packets_for_sim.put(IoTData(
+            outgoing_packets_queue.put(IoTData(
                 # General Modem Packet Fields
                 flow=ModemPacket_FlowField.IOT,
 

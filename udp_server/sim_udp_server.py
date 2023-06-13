@@ -246,6 +246,7 @@ def listen_from_modem(receiving_socket):
 
             if not IS_RUNNING_LOCALLY:# cache the sender_addr as the modem address if we are not running locally
                 modem_address, modem_port = sender_addr
+                logger.info('Caching host:port {}:{}'.format(modem_address, modem_port))
 
         except BlockingIOError:
             # No data to receive yet; spin!
@@ -293,7 +294,7 @@ def handle_modem_packet(producer, flask_server_addr_port, sending_socket, stream
             continue
 
 
-def listen_and_handle_from_main_server(sending_socket, consumer):
+def listen_and_handle_from_main_server(bidirectional_socket, consumer):
     # KafkaConsumer of messages from main Flask Server, and call respective handler
     logger.info("'Listen and Handle from Main Server' thread beginning...")
     global modem_address, modem_port
@@ -319,7 +320,8 @@ def listen_and_handle_from_main_server(sending_socket, consumer):
         request_type = data_dict.get('type')
 
         if request_type == 'carrier-switch-perform':
-            handle_carrier_switch_perform(sending_socket, (modem_address, modem_port), data_dict)
+            logger.info('Performing carrier switch: (modem address, modemp port): ({},{})'.format(modem_address, modem_port))
+            handle_carrier_switch_perform(bidirectional_socket, (modem_address, modem_port), data_dict)
         else: # Unsupported or missing
             logger.error(f"Received malformed Downstream Request message: Unsupported or missing 'type' field: '{request_type if request_type else ''}'")
             continue

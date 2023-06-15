@@ -28,7 +28,7 @@ Additionally, however, we also can avoid Kafka altogether and simply stream data
 #### Grafana Data Visualization
 Here's an example dashboard that we've thrown together for display of this "dummy" setup:
 
-![Grafana Example Dashboard](/img/grafana_dashboard_example_screenshot.PNG)
+![Grafana Example Dashboard](/docs/grafana_dashboard_example_screenshot.PNG)
 
 ### Interfaces and Protocol Message Formats
 To ensure the proper integration of these different subsystems, we defined many different interfaces/message formats, which are documented as follows:

@@ -31,14 +31,15 @@ DEFAULT_MODEM_PORT = 6002
 SERVER_MESSAGE_RCV_BUF_SIZE = 1024 # Arbitrary max receive message size.
 MODEM_MESSAGE_MAX_SIZE = 1024 # Arbitrary max send message size.
 DEFAULT_FAIL_RATE_CARRIER_SWITCH = 3 # For every 2 successes, we get a fail (on the 3rd attempt)
+DEFAULT_SIM_POLL_RATE = 3
 
-# TODO: Modify sensors and their associated rategroups to reflect more "real-life" scenario.
 SENSORS_MOCKED = {
     # Rategroup (Hz) : [(Device ID, Min Data Value, Max Data Value), ...]
-    1   : [(1, 0, 100)], # Need to keep at 1Hz, or else Grafana + Kafka cannot keep up due to bottleneck somewhere in upstream of IoT data.
+    1   : [(3, 0, 1000), (2, 0, 360), (1, -16, 16)], # Need to keep at 1Hz, or else Grafana + Kafka cannot keep up due to bottleneck somewhere in upstream of IoT data.
     10  : [],
     100 : []
 }
+
 
 incoming_packets_queue = queue.Queue()
 outgoing_packets_queue = queue.Queue()
@@ -65,32 +66,31 @@ def handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate):
     packets_for_sim.put(packet)
     
 
-def poll_sim():
+def poll_sim(poll_rate=0.3):
+    logger.info("'Poll SIM' thread beginning...")
+
     if not ssm.is_connected:
         logger.info("Unable to connect to SIM. Ending poll_sim thread.")
         return
 
     while True:
-        time.sleep(1) # Could probably change this poll rate?
+        time.sleep(1 / poll_rate) # Could probably change this poll rate?
         data,sw = ssm.ins_fetch()
         logger.debug(f"Making FETCH to SIM: {data}")
 
         if is_send_data_command(data):
-            logger.debug("Received SEND DATA proactive command")
+            logger.info("Received SEND DATA command from SIM")
             packet = extract_send_data_packet(data)
-            logger.debug(f"Successfully decoded packet: {packet.flow} {packet.topic}")
+            logger.info(f"SEND DATA contained a packet: {type(packet)}")
             outgoing_packets_queue.put(packet)
         elif is_receive_data_command(data):
-            logger.debug("Parsed as RECEIVE DATA proactive command")
+            logger.info("Received RECEIVE DATA command from SIM")
             # if packets_for_sim.qsize() == 0:
             #     logger.debug("No packets to send to SIM ... Spinning.")
             #     continue
-
-            logger.debug(f"Have {packets_for_sim.qsize()} packets available")
             packet = packets_for_sim.get(block=True)
-            logger.debug(f"sending {str(packet.to_bytes().hex())}")
             ssm.send_packet(str(packet.to_bytes().hex()))
-            logger.debug(f"Sent packet to SIM")
+            logger.info(f"Sent packet to SIM")
         else:
             logger.error("INVALID RESPONSE FROM SIM")
 
@@ -112,8 +112,8 @@ def listen_from_server(receiving_socket):
             raw_data, sender_addr = receiving_socket.recvfrom(SERVER_MESSAGE_RCV_BUF_SIZE)
         except BlockingIOError:
             # No data to receive yet; spin!
-            logger.warning("No data to receive yet from the server...")
-            time.sleep(0.2)
+            logger.debug("No data to recieve yet from the server...")
+            time.sleep(1)
             continue
 
         logger.info(f"RCV: {len(raw_data)} bytes from sender {sender_addr}")
@@ -152,10 +152,13 @@ def handle_server_packets(carrier_switch_fail_rate):
             logger.error(f"Unsupported packet with Flow value {packet.flow}.")
             continue
 
-
+from pytz import timezone
+import pytz
 
 def poll_iot_sensors():
     '''"Poll" IoT sensors for data at defined rate (fake, generate according to config), package, and enqueue into Outgoing Queue.'''
+    
+    x = input("Hit enter to begin polling IOT sensors:\n")
 
     logger.info("'Poll IoT Sensors' thread beginning...")
 
@@ -270,6 +273,12 @@ def main():
         type=int,
         help="Fail rate to mock for performing a carrier switch (given as fail on the Nth packet). Default: %(default)s",
         default=DEFAULT_FAIL_RATE_CARRIER_SWITCH)
+    parser.add_argument(
+        '--sim-poll-rate',
+        dest='sim_poll_rate',
+        type=float,
+        help="Poll rate to communicate with SIM. Default: %(default)s",
+        default=DEFAULT_SIM_POLL_RATE)
 
     args = parser.parse_args()
 
@@ -280,6 +289,7 @@ def main():
     carrier_switch_fail_rate = args.carrier_switch_fail_rate
     log = args.log
     log_level = args.log_level
+    sim_poll_rate = args.sim_poll_rate
 
     setup_logger(log_level=log_level, file_log=log, logger=logger)
 
@@ -317,7 +327,7 @@ def main():
         thread_transmit_outgoing_packets = threading.Thread(target=transmit_outgoing_packets, args=(bidirectional_socket, (server_address, server_port)), daemon=True)
         threads.append(thread_transmit_outgoing_packets)
 
-        thread_sim_reader = threading.Thread(target=poll_sim, daemon=True)
+        thread_sim_reader = threading.Thread(target=poll_sim, args=(sim_poll_rate,),daemon=True)
         threads.append(thread_sim_reader)
 
         # Start thread.

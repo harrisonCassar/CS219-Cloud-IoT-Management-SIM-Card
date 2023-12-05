@@ -41,7 +41,7 @@ To perform a full setup/deployment, we utilize `docker compose`. Refer to the fo
 ### Setup
 Setup is very simple! Simply, install Docker Compose, which can be accomplished by installing Docker Desktop to your machine. See the following article for the download and/or other options for installing Docker Compose: https://docs.docker.com/compose/install/.
 
-For Windows, for Docker, there is a known(?) bug that seemingly causes a memory leak, eating up your computer's memory even if you're not running anything (see https://github.com/docker/for-win/issues/12944). If it becomes annoying/hindering enough, we can temporarily solve this until Docker and/or Windows fixes this issue by placing a memory limit on WSL as follows:
+For Windows, for Docker, there is a known(?) bug that seemingly causes a memory leak, eating up your computer's memory even if you're not running anything (see https://github.com/docker/for-win/issues/12944). This was experienced by @harrisonCassar when running Docker Desktop 4.20.0 on Windows 10. This may be fixed by upgrading to Docker Desktop 4.25+ (see the issue linked previously). If it becomes annoying/hindering enough, we can temporarily solve this until Docker and/or Windows fixes this issue by placing a memory limit on WSL as follows:
 
 1. Shutdown WSL:
 ```bash

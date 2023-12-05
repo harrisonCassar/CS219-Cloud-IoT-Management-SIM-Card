@@ -6,11 +6,12 @@ Will contain all SIM-related code, including the Python modem emulator.
 
 ```source env/bin/activate```
 
-```pip install requirements.txt```
+```pip install -r requirements.txt```
 
 (for installing `swig`, refer to [the "SWIG Installation Guide" documentation on OpenBox](https://open-box.readthedocs.io/en/latest/installation/install_swig.html))
 (for installing the dependency on `winscard.h`, run `sudo apt install libpcsclite-dev`)
 (for installing the dependency on `Python.h`, run `sudo apt-get install python-dev-is-python3`)
+(for handling "invalid command: 'bdist_wheel', run `pip install wheel`)
 
 # Installing applet
 Download javacard applet repo:

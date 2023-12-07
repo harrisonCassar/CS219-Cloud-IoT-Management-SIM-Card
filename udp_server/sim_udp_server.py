@@ -19,21 +19,18 @@ from common.util import setup_logger, add_logging_arguments, get_device_nickname
 from common.protocol_headers import gen_carrier_to_carrier_id_mapping, gen_carrier_id_to_carrier_mapping, decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierSwitchPerform, CarrierSwitchAck_StatusField, CarrierIdField
 
 # SET HERE
-IS_RUNNING_LOCALLY = False
+IS_RUNNING_LOCALLY = True
 
 DEFAULT_FLASK_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_FLASK_SERVER_PORT= 8000
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 6001
-DEFAULT_MODEM_ADDRESS = "127.0.0.1"
-if IS_RUNNING_LOCALLY:
-    DEFAULT_MODEM_ADDRESS = "gateway.docker.internal"
-# DEFAULT_MODEM_ADDRESS = "127.0.0.1"
+DEFAULT_MODEM_ADDRESS = "127.0.0.1" if not IS_RUNNING_LOCALLY else "host.docker.internal"
+DEFAULT_MODEM_PORT = 6002
 # Note on DEFAULT_MODEM_ADDRESS
 # Assuming our UDP server is working locally?
-# Can also try: host.docker.internal if this doesn't work for your machine
+# Can also try: gateway.docker.internal if this doesn't work for your machine
 # https://docs.docker.com/desktop/networking/#i-want-to-connect-from-a-container-to-a-service-on-the-host
-DEFAULT_MODEM_PORT = 6002
 DEFAULT_KAFKA_ADDRESS = "127.0.0.1"
 DEFAULT_KAFKA_PORT = 9092
 DEFAULT_STREAMING_ADDRESS = "127.0.0.1"
@@ -251,10 +248,6 @@ def listen_from_modem(receiving_socket):
     global modem_address, modem_port
     global server_address, server_port
 
-    receiving_socket.bind((server_address, server_port))  # Set it initially to bind to the given hostname:port
-    receiving_socket.settimeout(0)
-    logger.debug(f"Initialize listening server socket at server address '{server_address}' and port '{server_port}'.")
-
     while True:
 
         # Receive up to specified number of bytes (if there are any).
@@ -311,7 +304,7 @@ def handle_modem_packet(producer, flask_server_addr_port, sending_socket, stream
             continue
 
 
-def listen_and_handle_from_main_server(bidirectional_socket, consumer):
+def listen_and_handle_from_main_server(sending_socket, consumer):
     # KafkaConsumer of messages from main Flask Server, and call respective handler
     logger.info("'Listen and Handle from Main Server' thread beginning...")
     global modem_address, modem_port
@@ -337,8 +330,8 @@ def listen_and_handle_from_main_server(bidirectional_socket, consumer):
         request_type = data_dict.get('type')
 
         if request_type == 'carrier-switch-perform':
-            logger.info('Performing carrier switch: (modem address, modemp port): ({},{})'.format(modem_address, modem_port))
-            handle_carrier_switch_perform(bidirectional_socket, (modem_address, modem_port), data_dict)
+            logger.info('Performing carrier switch: (modem address, modem port): ({},{})'.format(modem_address, modem_port))
+            handle_carrier_switch_perform(sending_socket, (modem_address, modem_port), data_dict)
         else: # Unsupported or missing
             logger.error(f"Received malformed Downstream Request message: Unsupported or missing 'type' field: '{request_type if request_type else ''}'")
             continue
@@ -440,47 +433,61 @@ def main():
     })
     consumer.subscribe(KAFKA_TOPIC_SERVER_MESSAGES)
 
-    # Setup UDP bidirectional socket.
-    with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as bidirectional_socket:
-        # Setup threads.
-        # 1. Listen for + push all incoming UDP packets into (thread-safe) queue
-        # 2. Drain queue of 1 UDP packet (if there is one present), decode packet, run handler(s)
-        #    - Handlers include:
-        #        - For IoT data, push to Kafka topic(s) + Grafana Live
-        #        - For N/ACK, update internal state (NEED TO BE THREAD-SAFE...?)
-        # 3. KafkaConsumer: listen for "carrier_switch" topic messages, and then send UDP carrier switch to modem client
-        #    - send "in-progress" to state Flask endpoint
-        #    - spin/block until either ACK is received OR timeout occurs (then perform re-try for X number of times before eventually giving up)
-        #    - upon success/failure, send "success/failure" to state Flask endpoint, along with current carrier ID
+    # Setup UDP sending socket.
+    with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as sending_socket:
 
-        threads = []
+        sending_socket.settimeout(0)
+        logger.debug(f"Init sending socket, with plans to send to modem address '{modem_address}' and port '{modem_port}'.")
 
-        thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(bidirectional_socket,), daemon=True)
-        threads.append(thread_listen_from_modem)
+        # Setup UDP receiving socket.
+        with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as receiving_socket:
 
-        thread_handle_modem_packet = threading.Thread(
-            target=handle_modem_packet,
-            args=(
-                producer,
-                (flask_server_address, flask_server_port),
-                bidirectional_socket, (streaming_address,
-                                       int(streaming_port))),
-            daemon=True)
-        threads.append(thread_handle_modem_packet)
+            receiving_socket.bind((server_address, server_port))
+            receiving_socket.settimeout(0)
 
-        thread_listen_and_handle_from_main_server = threading.Thread(
-            target=listen_and_handle_from_main_server, args=(bidirectional_socket, consumer), daemon=True)
-        threads.append(thread_listen_and_handle_from_main_server)
+            logger.debug(f"Init receiving socket at (local) server address '{server_address}' and port '{server_port}'.")
 
-        # Start thread.
-        for t in threads:
-            t.start()
+            logger.debug("Init complete!")
 
-        logger.debug("All threads launched.")
+            # Setup threads.
+            # 1. Listen for + push all incoming UDP packets into (thread-safe) queue
+            # 2. Drain queue of 1 UDP packet (if there is one present), decode packet, run handler(s)
+            #    - Handlers include:
+            #        - For IoT data, push to Kafka topic(s) + Grafana Live
+            #        - For N/ACK, update internal state (NEED TO BE THREAD-SAFE...?)
+            # 3. KafkaConsumer: listen for "carrier_switch" topic messages, and then send UDP carrier switch to modem client
+            #    - send "in-progress" to state Flask endpoint
+            #    - spin/block until either ACK is received OR timeout occurs (then perform re-try for X number of times before eventually giving up)
+            #    - upon success/failure, send "success/failure" to state Flask endpoint, along with current carrier ID
 
-        # Wait until all thread executions complete (effectively spin, as threads are daemon).
-        for t in threads:
-            t.join()
+            threads = []
+
+            thread_listen_from_modem = threading.Thread(target=listen_from_modem, args=(receiving_socket,), daemon=True)
+            threads.append(thread_listen_from_modem)
+
+            thread_handle_modem_packet = threading.Thread(
+                target=handle_modem_packet,
+                args=(
+                    producer,
+                    (flask_server_address, flask_server_port),
+                    sending_socket, (streaming_address,
+                                        int(streaming_port))),
+                daemon=True)
+            threads.append(thread_handle_modem_packet)
+
+            thread_listen_and_handle_from_main_server = threading.Thread(
+                target=listen_and_handle_from_main_server, args=(sending_socket, consumer), daemon=True)
+            threads.append(thread_listen_and_handle_from_main_server)
+
+            # Start thread.
+            for t in threads:
+                t.start()
+
+            logger.debug("All threads launched.")
+
+            # Wait until all thread executions complete (effectively spin, as threads are daemon).
+            for t in threads:
+                t.join()
 
 
 if __name__ == "__main__":

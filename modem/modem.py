@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """A basic mock of the Modem client. Enables testing of the UDP server.
 
 Description:
@@ -17,20 +19,18 @@ import threading
 import queue
 import random
 from datetime import datetime
-from sim_helpers import SimpleSIMReader, is_open_channel_command, is_receive_data_command, is_send_data_command, extract_send_data_packet
+from pytz import timezone
 
 from common.util import setup_logger, add_logging_arguments, get_device_nickname_by_id
 from common.protocol_headers import decode_packet, ModemPacket_FlowField, IotPacket_TopicField, CarrierSwitchPacket_TopicField, CarrierIdField, CarrierSwitchAck, CarrierSwitchAck_StatusField, IoTData
-from pytz import timezone
-import pytz
+from sim_helpers import SimpleSIMReader, is_open_channel_command, is_receive_data_command, is_send_data_command, extract_send_data_packet
 
-DEFAULT_SERVER_ADDRESS = "ec2-35-90-104-65.us-west-2.compute.amazonaws.com"
+DEFAULT_SERVER_ADDRESS = "127.0.0.1" # "ec2-35-90-104-65.us-west-2.compute.amazonaws.com"
 DEFAULT_SERVER_PORT = 6001
 DEFAULT_MODEM_ADDRESS = "127.0.0.1"
 DEFAULT_MODEM_PORT = 6002
 SERVER_MESSAGE_RCV_BUF_SIZE = 1024 # Arbitrary max receive message size.
 MODEM_MESSAGE_MAX_SIZE = 1024 # Arbitrary max send message size.
-DEFAULT_FAIL_RATE_CARRIER_SWITCH = 3 # For every 2 successes, we get a fail (on the 3rd attempt)
 DEFAULT_SIM_POLL_RATE = 3
 
 SENSORS_MOCKED = {
@@ -45,7 +45,6 @@ incoming_packets_queue = queue.Queue()
 outgoing_packets_queue = queue.Queue()
 packets_for_sim = queue.Queue()
 ssm = SimpleSIMReader()
-ssm.attempt_connection() # try to connect to SIM
 
 num_packets_sent = 0
 num_packets_received = 0
@@ -59,12 +58,12 @@ logger = logging.getLogger(__name__)
 #######################################################
 
 
-def handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate):
+def handle_carrier_switch_perform_packet(packet):
     logger.debug("Handling Carrier Switch Perform Packet...")
-    logger.info(f"Received request to Carrier Switch to {packet.carrier_id}.")
+    logger.info(f"Received request to Carrier Switch to {packet.carrier_id}. Enqueuing: ", packet)
     # Make request to carrier switch to SIM
     packets_for_sim.put(packet)
-    
+
 
 def poll_sim(poll_rate=0.3):
     logger.info("'Poll SIM' thread beginning...")
@@ -76,23 +75,25 @@ def poll_sim(poll_rate=0.3):
     while True:
         time.sleep(1 / poll_rate) # Could probably change this poll rate?
         data,sw = ssm.ins_fetch()
-        logger.debug(f"Making FETCH to SIM: {data}")
+        logger.info(f"Making FETCH to SIM: {data}, {sw}")
 
         if is_send_data_command(data):
             logger.info("Received SEND DATA command from SIM")
             packet = extract_send_data_packet(data)
             logger.info(f"SEND DATA contained a packet: {type(packet)}")
-            outgoing_packets_queue.put(packet)
+            if packet is not None:
+                outgoing_packets_queue.put(packet)
         elif is_receive_data_command(data):
             logger.info("Received RECEIVE DATA command from SIM")
             # if packets_for_sim.qsize() == 0:
             #     logger.debug("No packets to send to SIM ... Spinning.")
             #     continue
+            logger.info(f"Have {packets_for_sim.qsize()} packets available! Getting top (or blocking if none available yet)...")
             packet = packets_for_sim.get(block=True)
             ssm.send_packet(str(packet.to_bytes().hex()))
-            logger.info(f"Sent packet to SIM")
+            logger.info(f"Sent packet to SIM: {packet}, converted to: {str(packet.to_bytes().hex())}")
         else:
-            logger.error("INVALID RESPONSE FROM SIM")
+            logger.error("INVALID RESPONSE DATA FROM SIM: ", data)
 
 #######################################################
 # Thread Target Functions
@@ -128,7 +129,7 @@ def listen_from_server(receiving_socket):
         incoming_packets_queue.put(packet)
 
 
-def handle_server_packets(carrier_switch_fail_rate):
+def handle_server_packets():
     '''Drain Incoming Queue, and run respective handler depending on packet type.'''
 
     logger.info("'Handle Server Packets' thread beginning...")
@@ -142,7 +143,7 @@ def handle_server_packets(carrier_switch_fail_rate):
             logger.warning(f"Did not expect to receive IoT Flow Packet from the server. Ignoring...")
         elif packet.flow == ModemPacket_FlowField.CARRIER_SWITCH:
             if packet.topic == CarrierSwitchPacket_TopicField.PERFORM:
-                handle_carrier_switch_perform_packet(packet, carrier_switch_fail_rate)
+                handle_carrier_switch_perform_packet(packet)
             elif packet.topic == CarrierSwitchPacket_TopicField.ACK:
                 logger.warning(f"Did not expect to receive Carrier Switch ACK Packet from the server. Ignoring...")
             else:
@@ -152,8 +153,6 @@ def handle_server_packets(carrier_switch_fail_rate):
             logger.error(f"Unsupported packet with Flow value {packet.flow}.")
             continue
 
-from pytz import timezone
-import pytz
 
 def poll_iot_sensors():
     '''"Poll" IoT sensors for data at defined rate (fake, generate according to config), package, and enqueue into Outgoing Queue.'''
@@ -177,9 +176,7 @@ def poll_iot_sensors():
 
             logger.debug(f"Polled sensor {nickname} with ID {device_id} for data value {data_int}.")
 
-            # pass the polled data to the SIM
-
-            outgoing_packets_queue.put(IoTData(
+            packet = IoTData(
                 # General Modem Packet Fields
                 flow=ModemPacket_FlowField.IOT,
 
@@ -191,7 +188,16 @@ def poll_iot_sensors():
                 timestamp=timestamp,
                 data_length=len(data),
                 data=data
-            ))
+            )
+
+            # NOTE: Here, we should pass the polled data to the SIM. However, we instead
+            # bypass the SIM for simplicity, given the current project state, and instead
+            # send it straight to the UDP server.
+            # TODO: Fix this functionality, and instead send data through SIM as intended.
+            # logger.info("Enqueuing IoTData packet for SIM: ", packet)
+            # packets_for_sim.put(packet)
+            logger.info("Enqueuing IoTData packet for transmission to UDP server: ", packet)
+            outgoing_packets_queue.put(packet)
 
 
     cycle = 0
@@ -210,7 +216,7 @@ def poll_iot_sensors():
             poll_and_enqueue(1)
 
 
-def transmit_outgoing_packets(bidirectional_socket, server_addr_port):
+def transmit_outgoing_packets(sending_socket, server_addr_port):
     '''Drain Outgoing Queue of packets and send to the server.'''
 
     global num_packets_sent
@@ -229,8 +235,9 @@ def transmit_outgoing_packets(bidirectional_socket, server_addr_port):
             continue
 
         # Send UDP packet.
-        bidirectional_socket.sendto(packet_bytes, server_addr_port)
+        sending_socket.sendto(packet_bytes, server_addr_port)
 
+        logger.info(f"SENT UDP packet to addr {server_addr_port[0]} at port {server_addr_port[1]}: {packet}")
         logger.debug(f"SENT: {packet_bytes}")
 
         # Update stats.
@@ -268,12 +275,6 @@ def main():
         help="Port of server that modem (connected to SIM) client can communicate with. Default: %(default)s",
         default=DEFAULT_SERVER_PORT)
     parser.add_argument(
-        '--carrier-switch-fail-rate',
-        dest='carrier_switch_fail_rate',
-        type=int,
-        help="Fail rate to mock for performing a carrier switch (given as fail on the Nth packet). Default: %(default)s",
-        default=DEFAULT_FAIL_RATE_CARRIER_SWITCH)
-    parser.add_argument(
         '--sim-poll-rate',
         dest='sim_poll_rate',
         type=float,
@@ -286,59 +287,66 @@ def main():
     server_port = args.server_port
     modem_address = args.modem_address
     modem_port = args.modem_port
-    carrier_switch_fail_rate = args.carrier_switch_fail_rate
     log = args.log
     log_level = args.log_level
     sim_poll_rate = args.sim_poll_rate
 
     setup_logger(log_level=log_level, file_log=log, logger=logger)
 
-    # Setup UDP bidirectional socket.
-    with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as bidirectional_socket:
+    # Setup SIM card.
+    ssm.attempt_connection() # try to connect to SIM
 
-        bidirectional_socket.settimeout(0)
-        logger.debug(f"Init bidirectional socket, with plans to send to server address '{server_address}' and port '{server_port}'.")
-        print(modem_address, modem_port)
+    # Setup UDP sending socket.
+    with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as sending_socket:
 
-        logger.debug(f"Init receiving modem socket at modem address '{modem_address}' and port '{modem_port}'.")
+        sending_socket.settimeout(0)
+        logger.debug(f"Init sending socket, with plans to send to server address '{server_address}' and port '{server_port}'.")
 
-        logger.debug("Init complete.")
+        # Setup UDP receiving socket.
+        with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as receiving_socket:
 
-        # Setup threads.
-        # 1. Listen for + push all incoming UDP packets into (thread-safe) queue
-        # 2. Drain incoming queue of 1 UDP packet (if there is one present), decode packet, run handler(s)
-        #    - Handlers include:
-        #        - For Carrier Switch Perform, perform + ACK
-        # 3. Poll IoT sensors for data at a defined rate (depending on the device's assigned rategroup).
-        #    - Package UDP packet and enqueue into outgoing queue.
-        # 4. Drain outgoing queue of 1 UDP packet (if there is one present) and send to server.
+            receiving_socket.bind((modem_address, modem_port))
+            receiving_socket.settimeout(0)
 
-        threads = []
+            logger.debug(f"Init receiving socket at local address '{modem_address}' and port '{modem_port}'.")
 
-        thread_listen_from_server = threading.Thread(target=listen_from_server, args=(bidirectional_socket,), daemon=True)
-        threads.append(thread_listen_from_server)
+            logger.debug("Init complete!")
 
-        thread_handle_server_packets = threading.Thread(target=handle_server_packets, args=(carrier_switch_fail_rate,), daemon=True)
-        threads.append(thread_handle_server_packets)
+            # Setup threads.
+            # 1. Listen for + push all incoming UDP packets into (thread-safe) queue
+            # 2. Drain incoming queue of 1 UDP packet (if there is one present), decode packet, run handler(s)
+            #    - Handlers include:
+            #        - For Carrier Switch Perform, perform + ACK
+            # 3. Poll IoT sensors for data at a defined rate (depending on the device's assigned rategroup).
+            #    - Package UDP packet and enqueue into outgoing queue.
+            # 4. Drain outgoing queue of 1 UDP packet (if there is one present) and send to server.
 
-        thread_poll_iot_sensors = threading.Thread(target=poll_iot_sensors, daemon=True)
-        threads.append(thread_poll_iot_sensors)
+            threads = []
 
-        thread_transmit_outgoing_packets = threading.Thread(target=transmit_outgoing_packets, args=(bidirectional_socket, (server_address, server_port)), daemon=True)
-        threads.append(thread_transmit_outgoing_packets)
+            thread_listen_from_server = threading.Thread(target=listen_from_server, args=(receiving_socket,), daemon=True)
+            threads.append(thread_listen_from_server)
 
-        thread_sim_reader = threading.Thread(target=poll_sim, args=(sim_poll_rate,),daemon=True)
-        threads.append(thread_sim_reader)
+            thread_handle_server_packets = threading.Thread(target=handle_server_packets, daemon=True)
+            threads.append(thread_handle_server_packets)
 
-        # Start thread.
-        for t in threads:
-            t.start()
+            thread_poll_iot_sensors = threading.Thread(target=poll_iot_sensors, daemon=True)
+            threads.append(thread_poll_iot_sensors)
 
-        logger.debug("All threads launched.")
+            thread_transmit_outgoing_packets = threading.Thread(target=transmit_outgoing_packets, args=(sending_socket, (server_address, server_port)), daemon=True)
+            threads.append(thread_transmit_outgoing_packets)
 
-        # Wait until all thread executions complete (effectively spin, as threads are daemon).
-        for t in threads:
-            t.join()
+            thread_sim_reader = threading.Thread(target=poll_sim, args=(sim_poll_rate,),daemon=True)
+            threads.append(thread_sim_reader)
+
+            # Start thread.
+            for t in threads:
+                t.start()
+
+            logger.debug("All threads launched.")
+
+            # Wait until all thread executions complete (effectively spin, as threads are daemon).
+            for t in threads:
+                t.join()
 
 
 if __name__ == "__main__":

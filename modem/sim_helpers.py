@@ -31,7 +31,7 @@ class SimpleSIMReader:
     Wrapper around SIMReader provided from eSIM-Loader repository: https://github.com/JinghaoZhao/eSIM-Loader/blob/master/sim_reader.py
     """
 
-    INS_FETCH = "00F3000015"
+    INS_FETCH = "00F3000011" # for IoT Data expected length: "00F3000021"
     INS_TERMINAL_START = "00f40000"
     RESPONSE_TEST = "00f400002281030134000202828103010029140D0A2B435245473A20312C310D0A0D0A4F4B0D0A"
 
@@ -44,7 +44,8 @@ class SimpleSIMReader:
             self.sr = SIM_Reader()
             self.sr.wait_for_card()
             self.is_connected = True
-        except:
+        except Exception as e:
+            print(f"Error reached while attempting to connect to the card: {e}")
             self.is_connected = False
 
     

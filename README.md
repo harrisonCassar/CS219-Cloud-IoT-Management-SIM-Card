@@ -65,8 +65,8 @@ To ensure the proper integration of these different subsystems, we defined many 
 ## To Setup
 ### Local Subsystem
 #### WSL
-Due to our local subsystem's usage of a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which runs in a Linux environment only, WSL must be installed. Although WSL can be installed on Windows 10, many other setup steps are more stable and greatly simplified through the usage of Windows 11. Due to our local subsystem's usage of a physical Java Card being read by a smart card reader connected via USB to our Windows machine (see Figure \ref{fig:smart-card-reader}), and due to USB device connection support not being natively available in WSL\cite{microsoft-docs-wsl-connect-usb-devices}, WSL2 must be the version installed and set, with Linux kernel 5.10.60.1 or later being ran. We can perform this setup by opening PowerShell and typing:
-```PowerShell
+Due to our local subsystem's usage of a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which runs in a Linux environment only, WSL must be installed. Although WSL can be installed on Windows 10, many other setup steps are more stable and greatly simplified through the usage of Windows 11. Due to our local subsystem's usage of a physical Java Card being read by a smart card reader connected via USB to our Windows machine (see the below subsection), and due to USB device connection support [not being natively available in WSL](https://learn.microsoft.com/en-us/windows/wsl/connect-usb), WSL2 must be the version installed and set, with Linux kernel 5.10.60.1 or later being ran. We can perform this setup by opening PowerShell and typing:
+```Powershell
 # Install WSL
 wsl --install
 
@@ -74,7 +74,64 @@ wsl --install
 wsl --set-default-version 2
 ```
 #### Smart Card Reader
-TODO (includes attaching USB device, and installing `pcscd` service and device drivers + `pcsc_scan` for debugging purposes.
+
+As noted in the previous subsection, due to the [lack of USB device connection support in native Windows for WSL]([url](https://learn.microsoft.com/en-us/windows/wsl/connect-usb)), we must follow a few additional steps, which can be found in the previously-linked Windows WSL documentation (but is summarized here within this section). **NOTE**: In this project, a ACS ACR38U USB smart card reader was used (see the below image), however these steps should generally apply to any USB smart card/SIM card reader.
+
+![USB Smart Card Reader](/docs/smart-card-reader.png)
+
+First, install the [latest release of `usbipd-win`](https://github.com/dorssel/usbipd-win/releases) (this project was developed and tested up to v3.2.0, but assuming no major workflow changes are made, the latest release should work). Following the installation, restart your terminal. 
+
+Next, launch WSL (this should be set to WSL2, as done in the previous subsection), and install the `usbip` tools and hardware database as follows:
+```bash
+sudo apt install linux-tools-generic hwdata
+sudo update-alternatives --install /usr/local/bin/usbip usbip /usr/lib/linux-tools/*-generic/usbip 20
+```
+
+Plug the USB smart card reader into your machine (if you haven't already), open PowerShell as Administrator, and run the following command to see a list of all the available serial devices:
+```Powershell
+# Display all available serial devices.
+usbipd wsl list
+```
+From here, make a note of the VID:PID associated with the smart card reader of interest, and attach it to WSL via the following commands:
+```Powershell
+# Attach the device of interest to WSL.
+usbipd wsl attach -i <VID>:<PID>
+
+# Confirm the device now show's up as attached.
+usbipd wsl list
+```
+To confirm the attach process worked, you can run `lsusb` in WSL to see the attached smart card reader. **NOTE**: As long as WSL is running and not shutdown, and the smart card reader remains connected and/or powered on, the smart card reader will remain attached. Therefore, this attach procedure will likely have to be re-done.
+
+A screenshot of an example attach process follows:
+
+![USB WSL Attach Process](/docs/usb-wsl-attach-process.png)
+
+Next, we need to install/run the `pcscd` service to allow us to communicate properly with the smart card reader. We do this by running the following commands:
+```bash
+# Install the `pcscd` service.
+sudo apt-get install pcscd
+
+# Start the `pcscd` service (this may have to be restarted from time-to-time).
+sudo service pcscd start # or restart
+```
+
+Finally, if you would like to utilize the `pcsc_scan` command-line tool to debug the smart card reader's status, the tool and its drivers can be installed by downloading the correct drivers for your Linux distribution from the card reader's website (for the ACS ACR38U card reader, they can be found on the [ACS product website](https://www.acs.com.hk/en/products/199/acr38u-i1-smart-card-reader/) under the "Downloads" page as "PC/SC Driver Package"), unzipping the folder's contents, and installing them via the following commands:
+```bash
+# Navigate to the distribution you are running.
+cd ubuntu/bionic # This is for 18.04.
+
+# Ensure a required dependency is installed.
+sudo apt-get install libpcsclite1
+
+# Install the driver package.
+sudo dpkg -i libacsccid1_1.1.8-1~ubuntu18.04.1_amd64.deb
+
+# Restart the `pcscd` service (assuming its installed with the aforementioned steps earlier in this section).
+sudo service pcscd restart
+
+# Run the command-line tool.
+pcsc_scan
+```
 
 An example terminal output from running `pcsc_scan` in WSL and inserting the card into the smart card reader (assuming the smart card reader is attached to WSL, and `pcscd` service is running):
 

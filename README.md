@@ -1,6 +1,8 @@
 # Cloud-Based IoT Management with SIM Card
 The code here was developed as a part of the course project for CS219: Cloud Computing with Professor Songwu Lu, and extended as a part of Harrison Cassar's Masters capstone project. Guidance for the course project was graciously provided by Mentor Jinghao Zhao, and guidance for the capstone project was graciously provided by Mentor Boyan Ding.
 
+Table of Contents: TODO
+
 ## Basic Overview
 For our "local" system, we have the following main components:
 - Mocked SIM card with a Java Card, loaded with an [eSIM applet](https://github.com/JinghaoZhao/eSIM-Applet-dev)
@@ -36,7 +38,7 @@ To ensure the proper integration of these different subsystems, we defined many 
 - [UDP Protocol Header Definitions - Modem/SIM Client to/from UDP Server](https://docs.google.com/document/d/1mdEs5FQMaLGbHuUZef3QJAGZf7BZ-vpbF44EHkEYv3E/edit?usp=sharing)
 - [Kafka Interface Definitioins - UDP Server to/from Main Flask Server](https://docs.google.com/document/d/1W6KI_zLdXfP7h6rauD6cq6sPPcaDoXfJs3fSTZ8QFwk/edit?usp=sharing)
 
-## Setup
+## To Setup
 ### Local Subsystem
 #### WSL
 Due to our local subsystem's usage of a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which runs in a Linux environment only, WSL must be installed. Although WSL can be installed on Windows 10, many other setup steps are more stable and greatly simplified through the usage of Windows 11. Due to our local subsystem's usage of a physical Java Card being read by a smart card reader connected via USB to our Windows machine (see Figure \ref{fig:smart-card-reader}), and due to USB device connection support not being natively available in WSL\cite{microsoft-docs-wsl-connect-usb-devices}, WSL2 must be the version installed and set, with Linux kernel 5.10.60.1 or later being ran. We can perform this setup by opening PowerShell and typing:
@@ -47,6 +49,12 @@ wsl --install
 # Ensure the default version is set to WSL2
 wsl --set-default-version 2
 ```
+#### Smart Card Reader
+TODO (includes attaching USB device, and installing `pcscd` service and device drivers + `pcsc_scan` for debugging purposes.
+
+#### Mocked SIM card
+TODO (Java Card and eSIM Applet, and eSIM Loader; point to their READMEs, but include exact steps taken for this project/summary).
+
 #### srsRAN
 As noted above, our local subsystem utilizes a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which we install from source as follows (using a similar set of steps that can be found in the [srsRAN docs](https://docs.srsran.com/projects/4g/en/latest/general/source/1_installation.html)):
 
@@ -79,46 +87,21 @@ mkdir ~/.config/srsran
 cp config/* ~/.config/srsran
 ```
 
-To run the srsRAN-related components, we run the following commands IN-ORDER (starting a network namespace for the UE, and then running the srsEPC (core network), srsENB (base station), and srsUE (UE), respectively):
-```bash
-# Ensure a network namespace exists for the UE (can check its existence with `sudo ip netns list`).
-sudo ip netns add ue1
-
-# Run srsEPC.
-sudo ./srsepc/src/srsepc
-
-# Run srsENB.
-./srsenb/src/srsenb --rf.device_name=zmq --rf.device_args="fail_on_disconnect=true,tx_port=tcp://*:2000,rx_port=tcp://localhost:2001,id=enb,base_srate=23.04e6"
-
-# Run srsUE.
-sudo ./srsue/src/srsue --rf.device_name=zmq --rf.device_args="tx_port=tcp://*:2001,rx_port=tcp://localhost:2000,id=ue,base_srate=23.04e6" --gw.netns=ue1
-```
-
-A screenshot of these components up and running can be found as follows:
-
-![srsRAN Components Running](/docs/srsran-4g-apps-running.png)
-
 ### Cloud Subsystem
 To perform the setup/deployment of our cloud subsystem in Docker locally (non-cloud hosted), the process is very simple! We utilize `docker compose`. Simply put, install Docker Compose, which can be accomplished by installing Docker Desktop to your machine. See the following article for the download and/or other options for installing Docker Compose: https://docs.docker.com/compose/install/. **NOTE: We reccomend installing v4.25+ to avoid a possible memory leak bug in Docker (see below).**
 
-To run the suite, we use `docker compose up` at the base of this repository:
-```bash
-# Compose (build and run) all of the Docker Containers
-# -d: OPTIONAL, can be used to run in the background.
-# --build: can be omitted if you do not need to re-build any of the Docker images (no code changes).
-sudo docker compose up --build
-```
-...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask servers assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)").
-
-**NOTE**: We recommend having Docker Desktop open to be able to easily view the currently running containers and/or their logs/statuses. However, there exists a number of individual commands to manage the running containers from the command-line (see the [Docker Docs on this topic](https://docs.docker.com/engine/reference/commandline/docker/)). For an example of these individual commands, see the associated `README.md` files for each of the Docker container sources located throughout this code base (e.g. for the Main Python Flask server, refer to `flask-app\README.md`).
+For instructions on how to start up the cloud subsystem's Docker containers, refer to the [below section](#to-run) about running the project.
 
 #### Quirks
 ##### Kafka Topic Non-Existent on Startup
-Sometimes, when starting up fresh Docker containers of the cloud subsystem components, the UDP Server will fail with an error
-TODO
+Sometimes, when starting up fresh Docker containers of the cloud subsystem components, the UDP Server will fail with an error: "When reading a Downstream Request message from Kafka: KafkaError{code=UNKNOWN_TOPIC_OR_PART,val=3,str="Subscribed topic not available: downstream-request: Broker: Unknown topic or partition"}". This is caused from the UDP Server, on startup, attempting to subscribe to the "downstream-request" topic (which is produced by the Main Flask server) however since the Kafka instance has been freshly-built, it has yet to create the topic (no messages have been produced yet for this topic).
+
+There is a way to configure Kafka within the Docker Compose file to init with a few pre-defined topics, however when attempting to do this method for this proejct, the issue did not cease to exist. At the moment, this can be worked-around by starting up the cloud subsystem, opening the Main Flask server's web application (viewable within your browser at `localhost` with the Flask server's assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)")), and invoking a "Carrier Switch Request" to be sent downstream (which will create the topic within the Kafka instance). This will create the topic within the Kafka instance, which should result in everything working once again following a restart of the UDP Server before a restart of the Main Flask Server.
 
 ##### Startup Order Affecting Downstream Messages
-Occasionally, upon startup, messages sent through the Kafka instance for the Carrier Switch functionality (produced from the Main Flask server, and consumed by the UDP Server) do not seem to make it through end-to-end within the cloud. For these scenarios, a restart of the UDP server, followed by the Main Flask server, usually fixes things.
+Occasionally, upon startup, messages sent through the Kafka instance for the Carrier Switch functionality (produced from the Main Flask server, and consumed by the UDP Server) do not seem to make it through end-to-end within the cloud. Sometimes, this is due to a massive delay somewhere in Kafka's handling, and can be either waited for (upwards of a minute) or forced by sending numerous additional "Carrier Switch Requests".
+
+Sometimes, however, still nothing makes it all the way through to the UDP Server for consuming. For these scenarios, a restart of the UDP server, followed by the Main Flask server, usually fixes things.
 
 ##### Docker for Windows Memory Leak
 For Windows, for Docker, there is a known(?) bug that seemingly causes a memory leak, eating up your computer's memory even if you're not running anything (see https://github.com/docker/for-win/issues/12944). This was experienced by @harrisonCassar when running Docker Desktop 4.20.0 on Windows 10. This may be fixed by upgrading to Docker Desktop 4.25+ (see the issue linked previously). If it becomes annoying/hindering enough, we can temporarily solve this until Docker and/or Windows fixes this issue by placing a memory limit on WSL as follows:
@@ -141,6 +124,59 @@ Confirm that your memory usage by the `vmmmem` service (represents all memory us
 #### Setup/Run/Manage locally without Docker Container
 **NOTE: THIS METHOD OF DEVELOPMENT, TESTING, AND DEPLOYMENT HAS BEEN DEPRECATED! Please instead refer to the above section for steps on how to setup/run/manage the application in Docker containers.**
 To setup the local deployment, each subsystem involves a slightly different means/set of dependencies. To run the individual code, follow the setup/run instructions in the READMEs found within the various subdirectories. For example, for the Main Python Flask server, refer to `flask-app\README.md`.
+
+## To Run
+### Local Subsystem
+To run the local subsystem's various components, we need to follow a few specific steps. We summarize those components below, and summarize their steps in the following subsections:
+- [Smart Card Reader Service](#smart-card-reader-service)
+- [Modified srsRAN Components](#modified-srsran-components)
+- [Local Python Proxy Applications](#local-python-proxy-applications)
+
+#### Smart Card Reader Service
+In order to be able to talk to the Java Card in any capacity through the smart card reader, we need to make sure the `pcscd` service is started, which we can do as such:
+```
+# Confirm the `pcscd` service is running.
+sudo service pcscd start # or restart
+```
+
+**NOTE**: You may need to "restart" the `pcscd` service (instead of just "start"ing it) following an attach/detachment of the smart card reader through WSL, or a machine power-cycle/restart.
+
+#### Modified srsRAN Components
+To run the srsRAN-related components, we run the following commands IN-ORDER (starting a network namespace for the UE, and then running the srsEPC (core network), srsENB (base station), and srsUE (UE), respectively):
+```bash
+# Ensure a network namespace exists for the UE (can check its existence with `sudo ip netns list`).
+sudo ip netns add ue1
+
+# Run srsEPC.
+sudo ./srsepc/src/srsepc
+
+# Run srsENB.
+./srsenb/src/srsenb --rf.device_name=zmq --rf.device_args="fail_on_disconnect=true,tx_port=tcp://*:2000,rx_port=tcp://localhost:2001,id=enb,base_srate=23.04e6"
+
+# Run srsUE.
+sudo ./srsue/src/srsue --rf.device_name=zmq --rf.device_args="tx_port=tcp://*:2001,rx_port=tcp://localhost:2000,id=ue,base_srate=23.04e6" --gw.netns=ue1
+```
+
+Following this, the apps should be actively running with no errors outputted in the console logs, ready to intercept traffic meant for our externally-connected Java Card module sent from our Cloud Subsystem! A screenshot of these components up and running can be found as follows:
+
+![srsRAN Components Running](/docs/srsran-4g-apps-running.png)
+
+#### Local Python Proxy Applications
+TODO (update once interface for proxy app has been updated)
+
+### Cloud Subsystem
+To run the suite, we use `docker compose up` at the base of this repository:
+```bash
+# Compose (build and run) all of the Docker Containers
+# -d: OPTIONAL, can be used to run in the background.
+# --build: can be omitted if you do not need to re-build any of the Docker images (no code changes).
+sudo docker compose up --build
+```
+...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask server's assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)").
+
+**NOTE**: There exists a few quirks with the current implementation that can be addressed/worked around, as described in the above ["Quirks" section](#quirks) for the cloud subsystem setup.
+
+**NOTE**: We recommend having Docker Desktop open to be able to easily view the currently running containers and/or their logs/statuses. However, there exists a number of individual commands to manage the running containers from the command-line (see the [Docker Docs on this topic](https://docs.docker.com/engine/reference/commandline/docker/)). For an example of these individual commands, see the associated `README.md` files for each of the Docker container sources located throughout this code base (e.g. for the Main Python Flask server, refer to `flask-app\README.md`).
 
 ## Port Assignment
 - Flask Server: 8000

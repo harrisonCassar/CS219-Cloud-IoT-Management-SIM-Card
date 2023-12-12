@@ -80,21 +80,23 @@ cp config/* ~/.config/srsran
 ```
 
 To run the srsRAN-related components, we run the following commands IN-ORDER (starting a network namespace for the UE, and then running the srsEPC (core network), srsENB (base station), and srsUE (UE), respectively):
-```
+```bash
 # Ensure a network namespace exists for the UE (can check its existence with `sudo ip netns list`).
 sudo ip netns add ue1
 
 # Run srsEPC.
-TODO
+sudo ./srsepc/src/srsepc
 
 # Run srsENB.
-TODO
+./srsenb/src/srsenb --rf.device_name=zmq --rf.device_args="fail_on_disconnect=true,tx_port=tcp://*:2000,rx_port=tcp://localhost:2001,id=enb,base_srate=23.04e6"
 
 # Run srsUE.
-TODO
+sudo ./srsue/src/srsue --rf.device_name=zmq --rf.device_args="tx_port=tcp://*:2001,rx_port=tcp://localhost:2000,id=ue,base_srate=23.04e6" --gw.netns=ue1
 ```
 
-A screenshot of these components up and running can be found as follows: TODO
+A screenshot of these components up and running can be found as follows:
+
+![srsRAN Components Running](/docs/srsran-4g-apps-running.png)
 
 ### Cloud Subsystem
 To perform the setup/deployment of our cloud subsystem in Docker locally (non-cloud hosted), the process is very simple! We utilize `docker compose`. Simply put, install Docker Compose, which can be accomplished by installing Docker Desktop to your machine. See the following article for the download and/or other options for installing Docker Compose: https://docs.docker.com/compose/install/. **NOTE: We reccomend installing v4.25+ to avoid a possible memory leak bug in Docker (see below).**

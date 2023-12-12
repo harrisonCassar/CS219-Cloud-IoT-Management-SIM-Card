@@ -357,7 +357,7 @@ To run the suite, we use `docker compose up` at the base of this repository:
 # --build: can be omitted if you do not need to re-build any of the Docker images (no code changes).
 sudo docker compose up --build
 ```
-...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask server's assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)"). A screenshot of the current ste of the front-end can be seen below the following notes.
+...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask server's assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)"). A screenshot of the current state of the front-end can be seen below the following notes.
 
 **NOTE**: There exists a few quirks with the current implementation that can be addressed/worked around, as described in the above ["Quirks" section](#quirks) for the cloud subsystem setup.
 

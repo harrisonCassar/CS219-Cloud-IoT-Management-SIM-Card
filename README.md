@@ -13,11 +13,11 @@ The code here was developed as a part of the course project for CS219: Cloud Com
       - [Mocked SIM card](#mocked-sim-card)
       - [srsRAN](#srsran)
     - [Cloud Subsystem](#cloud-subsystem)
+      - [Without Docker (Locally/Natively)](#without-docker-locallynatively)
       - [Quirks](#quirks)
         - [Kafka Topic Non-Existent on Startup](#kafka-topic-non-existent-on-startup)
         - [Startup Order Affecting Downstream Messages](#startup-order-affecting-downstream-messages)
         - [Docker for Windows Memory Leak](#docker-for-windows-memory-leak)
-      - [Setup/Run/Manage locally without Docker Container](#setuprunmanage-locally-without-docker-container)
   - [To Run](#to-run)
     - [Local Subsystem](#local-subsystem-1)
       - [Smart Card Reader Service](#smart-card-reader-service)
@@ -76,6 +76,10 @@ wsl --set-default-version 2
 #### Smart Card Reader
 TODO (includes attaching USB device, and installing `pcscd` service and device drivers + `pcsc_scan` for debugging purposes.
 
+An example terminal output from running `pcsc_scan` in WSL and inserting the card into the smart card reader (assuming the smart card reader is attached to WSL, and `pcscd` service is running):
+
+![Example Terminal Output From Running `pcsc_scan`](/docs/pcsc-scan-example.png)
+
 #### Mocked SIM card
 TODO (Java Card and eSIM Applet, and eSIM Loader; point to their READMEs, but include exact steps taken for this project/summary).
 
@@ -116,6 +120,10 @@ To perform the setup/deployment of our cloud subsystem in Docker locally (non-cl
 
 For instructions on how to start up the cloud subsystem's Docker containers, refer to the [below section](#to-run) about running the project.
 
+#### Without Docker (Locally/Natively)
+**NOTE: THIS METHOD OF DEVELOPMENT, TESTING, AND DEPLOYMENT HAS BEEN DEPRECATED! Please instead refer to the above section for setup in Docker containers.**
+To setup the local deployment, each subsystem involves a slightly different means/set of dependencies. To run the individual code, follow the setup/run instructions in the READMEs found within the various subdirectories. For example, for the Main Python Flask server, refer to `flask-app\README.md`.
+
 #### Quirks
 ##### Kafka Topic Non-Existent on Startup
 Sometimes, when starting up fresh Docker containers of the cloud subsystem components, the UDP Server will fail with an error: "When reading a Downstream Request message from Kafka: KafkaError{code=UNKNOWN_TOPIC_OR_PART,val=3,str="Subscribed topic not available: downstream-request: Broker: Unknown topic or partition"}". This is caused from the UDP Server, on startup, attempting to subscribe to the "downstream-request" topic (which is produced by the Main Flask server) however since the Kafka instance has been freshly-built, it has yet to create the topic (no messages have been produced yet for this topic).
@@ -144,10 +152,6 @@ memory=2GB
 
 3. Restart Docker Desktop
 Confirm that your memory usage by the `vmmmem` service (represents all memory used by WSL and your virtual machines) is remaining below the limit you specified (using Task Manager, or a similar monitoring application).
-
-#### Setup/Run/Manage locally without Docker Container
-**NOTE: THIS METHOD OF DEVELOPMENT, TESTING, AND DEPLOYMENT HAS BEEN DEPRECATED! Please instead refer to the above section for steps on how to setup/run/manage the application in Docker containers.**
-To setup the local deployment, each subsystem involves a slightly different means/set of dependencies. To run the individual code, follow the setup/run instructions in the READMEs found within the various subdirectories. For example, for the Main Python Flask server, refer to `flask-app\README.md`.
 
 ## To Run
 ### Local Subsystem
@@ -196,11 +200,13 @@ To run the suite, we use `docker compose up` at the base of this repository:
 # --build: can be omitted if you do not need to re-build any of the Docker images (no code changes).
 sudo docker compose up --build
 ```
-...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask server's assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)").
+...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask server's assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)"). A screenshot of the current ste of the front-end can be seen below the following notes.
 
 **NOTE**: There exists a few quirks with the current implementation that can be addressed/worked around, as described in the above ["Quirks" section](#quirks) for the cloud subsystem setup.
 
 **NOTE**: We recommend having Docker Desktop open to be able to easily view the currently running containers and/or their logs/statuses. However, there exists a number of individual commands to manage the running containers from the command-line (see the [Docker Docs on this topic](https://docs.docker.com/engine/reference/commandline/docker/)). For an example of these individual commands, see the associated `README.md` files for each of the Docker container sources located throughout this code base (e.g. for the Main Python Flask server, refer to `flask-app\README.md`).
+
+![Flask Server Front-End](/docs/flask-server-frontend.png)
 
 ## Port Assignment
 - Flask Server: 8000

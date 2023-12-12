@@ -258,7 +258,7 @@ python3 ./proxy.py --src-address 127.0.0.1 --src-port 6002 --dest-address <WSL-I
 
 In WSL:
 ```bash
-python3 ./proxy.py --src-address 127.0.0.1 --src-port 6002 --dest-address <WSL-IP-ADDR> --dest-port 6003
+python3 ./proxy.py --src-address <WSL-IP-ADDR> --src-port 6003 --dest-address 172.16.0.2 --dest-port 6002
 ```
 
 ### Cloud Subsystem

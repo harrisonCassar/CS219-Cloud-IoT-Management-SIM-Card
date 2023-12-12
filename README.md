@@ -38,7 +38,63 @@ To ensure the proper integration of these different subsystems, we defined many 
 
 ## Setup
 ### Local Subsystem
+#### WSL
+Due to our local subsystem's usage of a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which runs in a Linux environment only, WSL must be installed. Although WSL can be installed on Windows 10, many other setup steps are more stable and greatly simplified through the usage of Windows 11. Due to our local subsystem's usage of a physical Java Card being read by a smart card reader connected via USB to our Windows machine (see Figure \ref{fig:smart-card-reader}), and due to USB device connection support not being natively available in WSL\cite{microsoft-docs-wsl-connect-usb-devices}, WSL2 must be the version installed and set, with Linux kernel 5.10.60.1 or later being ran. We can perform this setup by opening PowerShell and typing:
+```PowerShell
+# Install WSL
+wsl --install
+
+# Ensure the default version is set to WSL2
+wsl --set-default-version 2
+```
+#### srsRAN
+As noted above, our local subsystem utilizes a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which we install from source as follows (using a similar set of steps that can be found in the [srsRAN docs](https://docs.srsran.com/projects/4g/en/latest/general/source/1_installation.html)):
+
+First we install srsRAN dependencies:
+```bash
+# The `libzmq3-dev` package is not required, but utilized in performing some testing of the srsRAN setup.
+sudo apt-get install build-essential cmake libfftw3-dev libmbedtls-dev libboost-program-options-dev libconfig++-dev libsctp-dev libzmq3-dev
+```
+
+Then we download/clone the modified fork of srsRAN, and build the srsRAN binaries:
+```bash
+# Clone the fork of the srsRAN 4G repo, and checkout the branch that contains the CloudIoTManagement modifications.
+git clone https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement.git
+cd srsRAN_4G_CloudIoTManagement
+git checkout srsran-extension
+
+# Build the srsRAN binaries.
+mkdir build
+cd build
+cmake ../
+make
+```
+
+Then, we add the necessary configuration files to run the srsRAN binaries with the project's expected configuration (software-simulated SIM card connected to the srsUE component, as we're connecting to the mocked SIM Java Card separately)
+```bash
+# Ensure the config directory has been created.
+mkdir ~/.config/srsran
+
+# Copy the exact configuration files that's expected by this project (`ue.conf`, `epc.conf`, `enb.conf`, and `user_deb.csv`).
+cp config/* ~/.config/srsran
+```
+
+To run the srsRAN-related components, we run the following commands IN-ORDER (starting a network namespace for the UE, and then running the srsEPC (core network), srsENB (base station), and srsUE (UE), respectively):
+```
+# Ensure a network namespace exists for the UE (can check its existence with `sudo ip netns list`).
+sudo ip netns add ue1
+
+# Run srsEPC.
 TODO
+
+# Run srsENB.
+TODO
+
+# Run srsUE.
+TODO
+```
+
+A screenshot of these components up and running can be found as follows: TODO
 
 ### Cloud Subsystem
 To perform the setup/deployment of our cloud subsystem in Docker locally (non-cloud hosted), the process is very simple! We utilize `docker compose`. Simply put, install Docker Compose, which can be accomplished by installing Docker Desktop to your machine. See the following article for the download and/or other options for installing Docker Compose: https://docs.docker.com/compose/install/. **NOTE: We reccomend installing v4.25+ to avoid a possible memory leak bug in Docker (see below).**
@@ -48,7 +104,7 @@ To run the suite, we use `docker compose up` at the base of this repository:
 # Compose (build and run) all of the Docker Containers
 # -d: OPTIONAL, can be used to run in the background.
 # --build: can be omitted if you do not need to re-build any of the Docker images (no code changes).
-`sudo docker compose up --build`
+sudo docker compose up --build
 ```
 ...and that's it! The Main Flask Server front-end should be viewable within your browser at `localhost` with the Flask servers assigned/exposed port (ex: "[http://localhost:8000/](http://localhost:8000/)").
 

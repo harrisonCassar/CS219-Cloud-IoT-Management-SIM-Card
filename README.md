@@ -1,7 +1,31 @@
 # Cloud-Based IoT Management with SIM Card
 The code here was developed as a part of the course project for CS219: Cloud Computing with Professor Songwu Lu, and extended as a part of Harrison Cassar's Masters capstone project. Guidance for the course project was graciously provided by Mentor Jinghao Zhao, and guidance for the capstone project was graciously provided by Mentor Boyan Ding.
 
-Table of Contents: TODO
+- [Cloud-Based IoT Management with SIM Card](#cloud-based-iot-management-with-sim-card)
+  - [Basic Overview](#basic-overview)
+    - [Downstream Tasks on IoT Data](#downstream-tasks-on-iot-data)
+      - [Grafana Data Visualization](#grafana-data-visualization)
+    - [Interfaces and Protocol Message Formats](#interfaces-and-protocol-message-formats)
+  - [To Setup](#to-setup)
+    - [Local Subsystem](#local-subsystem)
+      - [WSL](#wsl)
+      - [Smart Card Reader](#smart-card-reader)
+      - [Mocked SIM card](#mocked-sim-card)
+      - [srsRAN](#srsran)
+    - [Cloud Subsystem](#cloud-subsystem)
+      - [Quirks](#quirks)
+        - [Kafka Topic Non-Existent on Startup](#kafka-topic-non-existent-on-startup)
+        - [Startup Order Affecting Downstream Messages](#startup-order-affecting-downstream-messages)
+        - [Docker for Windows Memory Leak](#docker-for-windows-memory-leak)
+      - [Setup/Run/Manage locally without Docker Container](#setuprunmanage-locally-without-docker-container)
+  - [To Run](#to-run)
+    - [Local Subsystem](#local-subsystem-1)
+      - [Smart Card Reader Service](#smart-card-reader-service)
+      - [Modified srsRAN Components](#modified-srsran-components)
+      - [Local Python Proxy Applications](#local-python-proxy-applications)
+    - [Cloud Subsystem](#cloud-subsystem-1)
+  - [Port Assignment](#port-assignment)
+  - [Cloud SSH Steps](#cloud-ssh-steps)
 
 ## Basic Overview
 For our "local" system, we have the following main components:

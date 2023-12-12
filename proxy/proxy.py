@@ -105,9 +105,9 @@ def main():
     args = parser.parse_args()
 
     src_address = args.src_address
-    src_port = args.src_port
+    src_port = int(args.src_port)
     dest_address = args.dest_address
-    dest_port = args.dest_port
+    dest_port = int(args.dest_port)
     log = args.log
     log_level = args.log_level
 

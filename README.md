@@ -247,7 +247,19 @@ Following this, the apps should be actively running with no errors outputted in 
 ![srsRAN Components Running](/docs/srsran-4g-apps-running.png)
 
 #### Local Python Proxy Applications
-TODO (update once interface for proxy app has been updated)
+To run the proxy applications needed to properly route the downstream UDP traffic from the cloud server's Docker container to the srsRAN components running in WSL (a workaround that is required due to [existing problems with UDP traffic not being routed properly to WSL2](https://github.com/microsoft/WSL/issues/8783)), two instances of the Python Proxy application must be ran: one in native Windows (in PowerShell), and one in WSL. For both of these applications, we must obtain the IP address held by WSL, which can be obtained by running `ifconfig` in WSL, and getting the value for the "inet" field under the "eth0" entry.
+
+Then, we can run the proxy applications as follows:
+
+In PowerShell:
+```Powershell
+python3 ./proxy.py --src-address 127.0.0.1 --src-port 6002 --dest-address <WSL-IP-ADDR> --dest-port 6003
+```
+
+In WSL:
+```bash
+python3 ./proxy.py --src-address 127.0.0.1 --src-port 6002 --dest-address <WSL-IP-ADDR> --dest-port 6003
+```
 
 ### Cloud Subsystem
 To run the suite, we use `docker compose up` at the base of this repository:

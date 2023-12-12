@@ -64,6 +64,9 @@ To ensure the proper integration of these different subsystems, we defined many 
 
 ## To Setup
 ### Local Subsystem
+
+By assumption, this setup section assumes you have Python 3.9+ installed. If you do not, please install Python 3.9+ first, such as by viewing the instructions on the [Python official downloads page](https://www.python.org/downloads/).
+
 #### WSL
 Due to our local subsystem's usage of a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which runs in a Linux environment only, WSL must be installed. Although WSL can be installed on Windows 10, many other setup steps are more stable and greatly simplified through the usage of Windows 11. Due to our local subsystem's usage of a physical Java Card being read by a smart card reader connected via USB to our Windows machine (see the below subsection), and due to USB device connection support [not being natively available in WSL](https://learn.microsoft.com/en-us/windows/wsl/connect-usb), WSL2 must be the version installed and set, with Linux kernel 5.10.60.1 or later being ran. We can perform this setup by opening PowerShell and typing:
 ```Powershell
@@ -138,7 +141,92 @@ An example terminal output from running `pcsc_scan` in WSL and inserting the car
 ![Example Terminal Output From Running `pcsc_scan`](/docs/pcsc-scan-example.png)
 
 #### Mocked SIM card
-TODO (Java Card and eSIM Applet, and eSIM Loader; point to their READMEs, but include exact steps taken for this project/summary).
+
+In this project extension (just as we did in the original project), we mock a physical SIM card with a Java Card loaded with an eSIM applet. The eSIM Applet source code lies within Jinghao Zhao's [eSIM-Applet-dev](https://github.com/JinghaoZhao/eSIM-Applet-dev/tree/dev-cloudiotmanagement) repository, with modifications for the "Cloud-Based IoT Management with SIM Card" application specifically on the "dev-cloudiotmanagement" branch. In order to load/build the SIM structure on the Java Card, we utilize the unmodified source code that lies within Jinghao Zhao's [eSIM-Loader](https://github.com/JinghaoZhao/eSIM-Loader) repository.
+
+For the complete necessary steps needed to setup development with and/or installing and loading of the applet image and profile onto the Java Card, we can refer to their base-directory READMEs. However, we summarize the relevant steps here within this section.
+
+Start by cloning the [eSIM-Applet-dev](https://github.com/JinghaoZhao/eSIM-Applet-dev/tree/dev-cloudiotmanagement) repository, and checking out the "dev-cloudiotmanagement" branch used for this project:
+```bash
+git clone https://github.com/JinghaoZhao/eSIM-Applet-dev.git
+cd ./eSIM-Applet-dev
+git checkout dev-cloudiotmanagement
+```
+
+Next, we look to install Java and Gradle, which we will use to build the applet. This can be done by following the steps outlined on the [Gradle installation docs](https://gradle.org/install/), which roughly sum up to:
+```bash
+# Check Java version is Java JDK8 or higher.
+java -version
+
+# Install SDKMAN! for package management (zip is a dependency).
+sudo apt install zip
+curl -s "https://get.sdkman.io" | bash
+
+# Install gradle.
+sdk install gradle 8.4 # This is the version of Gradle that was developed/tested with for this project.
+```
+
+Then, we build the eSIM applet with Gradle, running in the base directory:
+```bash
+# Build the Java Card eSIM applet with Gradle.
+# --rerun-tasks is to force re-run the task even though the cached input/output seems to be up to date.
+# Output CAP file is generated in `./applet/build/javacard/esim.cap`.
+./gradlew buildJavaCard  --info --rerun-tasks
+```
+
+Now, we run a one-time config setup to install [GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro), which we use to install the CAP file/applet image on the Java Card:
+```bash
+# One-time download of GlobalPlatformPro.exe and .jar to the folder `GlobalPlatformPro`; uses release v20.01.23.
+./config.sh
+```
+
+We finally install the CAP file onto the Java Card as such, first deleting the existing image:
+```bash
+# First delete the existing applet (if one exists; default package AID is 010203040506070809).
+java -jar ./GlobalPlatformPro/gp.jar -f --delete 010203040506070809
+
+# Install the newly-built CAP file onto the Java Card.
+java -jar ./GlobalPlatformPro/gp.jar --install ./applet/build/javacard/esim.cap --default
+```
+
+Now, we look to load the SIM profile on the Java Card via usage of the scripts found within [eSIM-Loader](https://github.com/JinghaoZhao/eSIM-Loader) repository. The steps can be summarized as follows:
+
+First we clone the repository:
+```bash
+# Clone the repository.
+git clone git@github.com:JinghaoZhao/eSIM-Loader.git
+cd eSIM-Loader
+```
+
+Then, we install the necessary dependencies as such:
+```bash
+# Install Linux package dependencies.
+sudo apt-get install pcscd pcsc-tools libccid libpcsclite-dev python-pyscard
+
+# Setup Python virtual environment.
+python3 -m venv <pathtovenv>
+
+# Activate Python virtual environment.
+source <pathtovenv>/bin/activate
+
+# Install Python package dependencies (and also their dependencies).
+sudo apt-get install swig3.0
+sudo ln -s /usr/bin/swig3.0 /usr/bin/swig
+pip install setuptools wheel
+pip install pyscard pytlv
+```
+
+Finally, we load the profile by running the easy-to-use script within the activated virtual environment:
+```bash
+# Load the SIM profile onto the Java Card.
+# NOTE: the below IMSI
+python3 profile-write.py --imsi 001010000099999 --opc 0102030405060708090A0B0C0D0E0F00 --key 0102030405060708090A0B0C0D0E0F01
+```
+
+**NOTE**: This profile loading does not need to be done every time we reload the applet. If you would like to read the current profile from the Java Card, run the following convenience script within the activated virtual environment:
+```bash
+python3 ./profile-read.py
+```
 
 #### srsRAN
 As noted above, our local subsystem utilizes a [modified fork of srsRAN](https://github.com/harrisonCassar/srsRAN_4G_CloudIoTManagement/tree/cloudiotmanagement) to represent a (software) mobile network infrastructure, which we install from source as follows (using a similar set of steps that can be found in the [srsRAN docs](https://docs.srsran.com/projects/4g/en/latest/general/source/1_installation.html)):
@@ -251,12 +339,12 @@ To run the proxy applications needed to properly route the downstream UDP traffi
 
 Then, we can run the proxy applications as follows:
 
-In PowerShell:
+In PowerShell (forwards traffic from Docker Desktop sent to the host Windows machine to the WSL proxy):
 ```Powershell
 python3 ./proxy.py --src-address 127.0.0.1 --src-port 6002 --dest-address <WSL-IP-ADDR> --dest-port 6003
 ```
 
-In WSL:
+In WSL (forwards traffic from WSL sent by the Windows proxy to srsRAN in WSL):
 ```bash
 python3 ./proxy.py --src-address <WSL-IP-ADDR> --src-port 6003 --dest-address 172.16.0.2 --dest-port 6002
 ```

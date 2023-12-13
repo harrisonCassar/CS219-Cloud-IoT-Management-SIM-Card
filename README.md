@@ -330,7 +330,7 @@ sudo ./srsepc/src/srsepc
 sudo ./srsue/src/srsue --rf.device_name=zmq --rf.device_args="tx_port=tcp://*:2001,rx_port=tcp://localhost:2000,id=ue,base_srate=23.04e6" --gw.netns=ue1
 ```
 
-Following this, the apps should be actively running with no errors outputted in the console logs, ready to intercept traffic meant for our externally-connected Java Card module sent from our Cloud Subsystem! A screenshot of these components up and running can be found as follows:
+Following this, the apps should be actively running with no errors outputted in the console logs, ready to intercept traffic meant for our externally-connected Java Card module sent from our Cloud Subsystem! If `srsENB` or `srsUE` is hanging on "Inactive RF plugins", restart WSL (by opening PowerShell, and typing `wsl --shutdown`) and try again. A screenshot of these components up and running can be found as follows:
 
 ![srsRAN Components Running](/docs/srsran-4g-apps-running.png)
 

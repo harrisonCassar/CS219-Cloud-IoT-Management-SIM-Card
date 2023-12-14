@@ -140,6 +140,8 @@ def main():
         # Send UDP traffic to destination.
         sending_sock.sendto(data, (dest_address, dest_port))
 
+        logger.info(f"Forwarded {len(data)} bytes from {(src_address, src_port)} to {(dest_address, dest_port)}.")
+
 
 if __name__ == "__main__":
     sys.exit(main())
